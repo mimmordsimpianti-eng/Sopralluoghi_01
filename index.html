@@ -2,13 +2,14 @@
 <html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sopralluogo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0a7c86">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Sopralluogo">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{--bg:#eef2f4;--card:#fff;--ink:#12303b;--mut:#5b7480;--line:#cfdbe0;--acc:#0a7c86;--accT:#fff;--err:#b42318;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a1f;--card:#16262d;--ink:#e6eff2;--mut:#93aab3;--line:#2b414a;--acc:#35b6c0;--accT:#06262a;--err:#ff8a80;color-scheme:dark}}
@@ -16,7 +17,7 @@
 *{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .app{max-width:640px;margin:0 auto;padding:16px 14px 90px}
-h1{font-size:1.5rem;margin:.2rem 0 .1rem}h2{font-size:1.05rem;margin:0 0 10px}
+.hd{display:flex;align-items:center;gap:12px;margin-bottom:6px}.logo{height:52px;width:auto;border-radius:6px;background:#fff;padding:2px}h1{font-size:1.5rem;margin:.2rem 0 .1rem}h2{font-size:1.05rem;margin:0 0 10px}
 .sub{color:var(--mut);margin:0 0 16px;font-size:.92rem}
 section,details.sol{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
 .g{display:grid;grid-template-columns:1fr 1fr;gap:10px}.w{grid-column:1/-1}
@@ -42,7 +43,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--bg);padding:10px
 @media print{.app,.bar,dialog{display:none!important}#rep{display:block!important}body{background:#fff}}
 </style></head><body>
 <div class="app">
-<h1>Sopralluogo</h1>
+<div class="hd"><img class="logo" src="logo.png" alt="RDS Impianti"><h1>Sopralluogo</h1></div>
 <p class="sub">Verifica tecnica preliminare con soluzioni e fotografie. I campi con * sono obbligatori.</p>
 <form id="m" novalidate>
 <section><h2>Identificazione</h2><div class="g">
@@ -64,8 +65,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--bg);padding:10px
 <button type="button" id="add">+ Aggiungi soluzione</button>
 </form></div>
 <div class="bar"><button type="button" id="sv">Salva bozza</button><button type="button" id="ld">Carica bozza</button><button type="button" class="p" id="gen">Genera testo e PDF</button></div>
-<dialog id="out"><h2>Testo per XME</h2><pre id="txt"></pre><div class="row" style="margin-top:10px;flex-wrap:wrap"><button type="button" class="p" id="cp">Copia testo</button><button type="button" id="pr">Stampa / salva PDF</button><button type="button" id="cl">Chiudi</button></div></dialog>
-<div id="rep"></div>
+<dialog id="out"><h2>Testo per XME</h2><pre id="txt"></pre><div class="row" style="margin-top:10px;flex-wrap:wrap"><button type="button" class="p w" style="flex:1 1 100%" id="wa">Invia su WhatsApp (PDF + testo)</button><button type="button" id="dl">Scarica PDF</button><button type="button" id="wt">Solo testo su WhatsApp</button><button type="button" id="cp">Copia testo</button><button type="button" id="cl">Chiudi</button></div></dialog>
 <script>
 var $=function(s,r){return(r||document).querySelector(s)},sols=$('#sols'),photos=new WeakMap();
 var POS=['Palifica','Facciata edificio','Pozzetto','Locali tecnici'],FEA=['Fattibile','Fattibile con opere civili','Non fattibile'];
@@ -119,19 +119,48 @@ function text(o){
     if(s.scavo)L.push('Scavo previsto: '+s.scavo+' m');if(s.interv)L.push('Intervento: '+s.interv);if(s.note)L.push('Note: '+s.note);
     L.push('Foto allegate: '+s.foto.length)});
   return L.join('\n')}
-function report(o){
-  var h='<h1>Sopralluogo</h1><table>'+[['OLO / W.O.',o.olo],['Data',o.data],['Squadra',o.squadra],['Tecnico',o.tecnico],['Indirizzo',o.indirizzo+', '+o.comune],['Civico diverso',o.civdiv+(o.civ?' - '+o.civ:'')],['Coordinate civico',o.civcoord]].map(function(r){return '<tr><td>'+r[0]+'</td><td>'+esc(r[1])+'</td></tr>'}).join('')+'</table>';
-  o.sols.forEach(function(s){h+='<h2>'+s.t+'</h2>';
-    if(s.nosec){h+='<p>Non è presente una soluzione secondaria.</p>';return}
-    h+='<table>'+[['ROE',s.roe+' ('+s.pos+')'],['Coordinate ROE',s.coord],['CNO',s.cno],['Esito',s.esito],['Scavo previsto',s.scavo?s.scavo+' m':''],['Intervento',s.interv],['Note',s.note]].map(function(r){return '<tr><td>'+r[0]+'</td><td>'+esc(r[1])+'</td></tr>'}).join('')+'</table>'+s.foto.map(function(u){return '<img src="'+u+'">'}).join('')});
-  return h}
+function mkpdf(o){
+  var D=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),y=40,W=182,X=14,z=0;
+  function need(h){if(y+h>278){D.addPage();y=18}}
+  D.setFillColor(10,124,134);D.rect(0,0,210,30,'F');
+  D.setTextColor(255,255,255);D.setFont('helvetica','bold');D.setFontSize(20);D.text('Sopralluogo tecnico',X,15);
+  D.setFont('helvetica','normal');D.setFontSize(10);D.text('RDS Impianti',X,22);
+  D.setFontSize(10);D.text('OLO / W.O.: '+o.olo,196,14,{align:'right'});D.text('Data: '+o.data.split('-').reverse().join('/'),196,21,{align:'right'});
+  function head(t){need(18);y+=4;D.setFillColor(10,124,134);D.rect(X,y-4.5,1.6,6,'F');D.setFont('helvetica','bold');D.setFontSize(12);D.setTextColor(18,48,59);D.text(t,X+4,y);y+=4;z=0}
+  function row(k,v){if(!v)return;var L=D.splitTextToSize(String(v),W-56),hh=L.length*4.8+3;need(hh);
+    if(z%2==0){D.setFillColor(238,243,245);D.rect(X,y-1,W,hh,'F')}z++;
+    D.setFont('helvetica','bold');D.setFontSize(9.5);D.setTextColor(91,116,128);D.text(k,X+2,y+3.6);
+    D.setFont('helvetica','normal');D.setFontSize(10);D.setTextColor(18,48,59);D.text(L,X+54,y+3.6);y+=hh}
+  head('Identificazione');row('OLO / W.O.',o.olo);row('Data intervento',o.data.split('-').reverse().join('/'));row('Squadra / impresa',o.squadra);row('Tecnico',o.tecnico);row('Indirizzo',o.indirizzo+', '+o.comune);
+  head('Verifica civico');row('Civico diverso da pratica',o.civdiv);row('Civico rilevato',o.civ);row('Coordinate civico',o.civcoord);
+  o.sols.forEach(function(s){head(s.t);
+    if(s.nosec){row('Esito','Non è presente una soluzione secondaria');return}
+    row('ROE',s.roe+' ('+s.pos+')');row('Coordinate ROE',s.coord);row('CNO',s.cno);row('Esito',s.esito);row('Scavo previsto',s.scavo?s.scavo+' m':'');row('Intervento',s.interv);row('Note',s.note);
+    var cw=(W-8)/3,ch=cw*0.75,col=0,n=0;y+=3;
+    s.foto.forEach(function(u){var p=D.getImageProperties(u),r=Math.min(cw/p.width,ch/p.height),w=p.width*r,hi=p.height*r;
+      if(col==0)need(ch+9);var x=X+col*(cw+4);D.addImage(u,'JPEG',x,y,w,hi);D.setDrawColor(190,205,211);D.rect(x,y,w,hi);
+      D.setFont('helvetica','normal');D.setFontSize(8);D.setTextColor(91,116,128);D.text('Foto '+(++n),x,y+hi+3.8);
+      col++;if(col==3){col=0;y+=ch+8}});
+    if(col)y+=ch+8});
+  var N=D.getNumberOfPages();
+  for(var i=1;i<=N;i++){D.setPage(i);D.setDrawColor(190,205,211);D.line(X,285,X+W,285);D.setFont('helvetica','normal');D.setFontSize(8);D.setTextColor(91,116,128);
+    D.text('RDS Impianti - Sopralluogo '+o.olo,X,290);D.text('Pagina '+i+' di '+N,X+W,290,{align:'right'})}
+  return D}
+var cur=null;
 $('#gen').onclick=function(){
   var m=$('#m');[].forEach.call(sols.children,function(d){d.open=true});
   if(sols.children.length<2){alert('Servono almeno due soluzioni: principale e secondaria.');return}
   if(!m.reportValidity())return;
-  var o=collect();$('#txt').textContent=text(o);$('#rep').innerHTML=report(o);$('#out').showModal()};
+  if(!window.jspdf){alert('Libreria PDF non caricata. Collegati a internet e riprova.');return}
+  var o=collect(),t=text(o),D=mkpdf(o),name='Sopralluogo_'+(o.olo||'').replace(/[^\w-]+/g,'_')+'.pdf';
+  cur={D:D,t:t,name:name,f:new File([D.output('blob')],name,{type:'application/pdf'})};
+  $('#txt').textContent=t;$('#cp').textContent='Copia testo';$('#out').showModal()};
+$('#wa').onclick=function(){if(!cur)return;
+  if(navigator.canShare&&navigator.canShare({files:[cur.f]})){navigator.share({files:[cur.f],text:cur.t,title:cur.name}).catch(function(){})}
+  else{cur.D.save(cur.name);window.open('https://wa.me/?text='+encodeURIComponent(cur.t),'_blank')}};
+$('#dl').onclick=function(){if(cur)cur.D.save(cur.name)};
+$('#wt').onclick=function(){if(cur)window.open('https://wa.me/?text='+encodeURIComponent(cur.t),'_blank')};
 $('#cl').onclick=function(){$('#out').close()};
-$('#pr').onclick=function(){window.print()};
 $('#cp').onclick=function(){var t=$('#txt').textContent;
   try{navigator.clipboard.writeText(t).then(function(){$('#cp').textContent='Copiato'})}catch(e){var r=document.createRange();r.selectNodeContents($('#txt'));var s=getSelection();s.removeAllRanges();s.addRange(r)}};
 var KEY='sopralluogo-bozza';
