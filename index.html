@@ -65,7 +65,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--bg);padding:10px
 <button type="button" id="add">+ Aggiungi soluzione</button>
 </form></div>
 <div class="bar"><button type="button" id="sv">Salva bozza</button><button type="button" id="ld">Carica bozza</button><button type="button" class="p" id="gen">Genera testo e PDF</button></div>
-<dialog id="out"><h2>Testo per XME</h2><pre id="txt"></pre><div class="row" style="margin-top:10px;flex-wrap:wrap"><button type="button" class="p w" style="flex:1 1 100%" id="wa">Invia su WhatsApp (PDF + testo)</button><button type="button" id="dl">Scarica PDF</button><button type="button" id="wt">Solo testo su WhatsApp</button><button type="button" id="cp">Copia testo</button><button type="button" id="cl">Chiudi</button></div></dialog>
+<dialog id="out"><h2>Testo per XME</h2><pre id="txt"></pre><div class="row" style="margin-top:10px;flex-wrap:wrap"><button type="button" class="p w" style="flex:1 1 100%" id="wa">Invia su WhatsApp (PDF + testo)</button><button type="button" class="p w" style="flex:1 1 100%" id="sd">Salva su Drive e foglio</button><p id="st" class="sub" style="flex:1 1 100%;margin:0"></p><button type="button" id="dl">Scarica PDF</button><button type="button" id="wt">Solo testo su WhatsApp</button><button type="button" id="cp">Copia testo</button><button type="button" id="cl">Chiudi</button></div></dialog>
 <script>
 var $=function(s,r){return(r||document).querySelector(s)},sols=$('#sols'),photos=new WeakMap();
 var POS=['Palifica','Facciata edificio','Pozzetto','Locali tecnici'],FEA=['Fattibile','Fattibile con opere civili','Non fattibile'];
@@ -153,11 +153,30 @@ $('#gen').onclick=function(){
   if(!m.reportValidity())return;
   if(!window.jspdf){alert('Libreria PDF non caricata. Collegati a internet e riprova.');return}
   var o=collect(),t=text(o),D=mkpdf(o),name='Sopralluogo_'+(o.olo||'').replace(/[^\w-]+/g,'_')+'.pdf';
-  cur={D:D,t:t,name:name,f:new File([D.output('blob')],name,{type:'application/pdf'})};
-  $('#txt').textContent=t;$('#cp').textContent='Copia testo';$('#out').showModal()};
+  cur={o:o,D:D,t:t,name:name,f:new File([D.output('blob')],name,{type:'application/pdf'})};
+  $('#txt').textContent=t;$('#cp').textContent='Copia testo';$('#st').textContent='';$('#out').showModal()};
 $('#wa').onclick=function(){if(!cur)return;
   if(navigator.canShare&&navigator.canShare({files:[cur.f]})){navigator.share({files:[cur.f],text:cur.t,title:cur.name}).catch(function(){})}
   else{cur.D.save(cur.name);window.open('https://wa.me/?text='+encodeURIComponent(cur.t),'_blank')}};
+var SCRIPT_URL='https://script.google.com/macros/s/AKfycbyObqUkooTSGN7S5kFoPObRPIWH_AnaG02fqSCJKwS6d1nW7fVoXhmV0zbn7Q03xc9h/exec';
+if(SCRIPT_URL.indexOf('http')!==0)$('#sd').style.display='none';
+function rowData(o){
+  var H=['Inviato il','OLO / W.O.','Data intervento','Squadra','Tecnico','Indirizzo','Comune','Civico diverso','Civico rilevato','Coordinate civico'],
+      R=[new Date().toLocaleString('it-IT'),o.olo,o.data,o.squadra,o.tecnico,o.indirizzo,o.comune,o.civdiv,o.civ,o.civcoord];
+  ['Principale','Secondaria'].forEach(function(n,i){var s=o.sols[i]||{};
+    H.push(n+' - ROE',n+' - Posizione',n+' - Coordinate',n+' - CNO',n+' - Esito',n+' - Scavo m',n+' - Intervento',n+' - Note');
+    R.push(s.nosec?'Non presente':(s.roe||''),s.pos||'',s.coord||'',s.cno||'',s.esito||'',s.scavo||'',s.interv||'',s.note||'')});
+  H.push('Altre soluzioni');R.push(o.sols.slice(2).map(function(s){return s.t+': ROE '+s.roe+', CNO '+s.cno+', '+s.esito}).join(' | '));
+  H.push('Link PDF');return{h:H,r:R}}
+$('#sd').onclick=function(){if(!cur)return;
+  if(cur.sent&&!confirm('Questo sopralluogo risulta già salvato. Salvarlo di nuovo?'))return;
+  var b=$('#sd'),st=$('#st'),d=rowData(cur.o),rd=new FileReader();b.disabled=true;st.textContent='Invio in corso…';
+  rd.onload=function(){var pdf=rd.result.split(',')[1];
+    fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({name:cur.name,pdf:pdf,headers:d.h,row:d.r})})
+    .then(function(r){return r.json()}).then(function(j){if(!j.ok)throw new Error(j.error||'errore');cur.sent=true;st.textContent='Salvato: PDF su Drive e riga nel foglio.'})
+    .catch(function(e){st.textContent='Invio non confermato ('+e.message+'). Controlla la connessione, poi verifica il foglio prima di riprovare.'})
+    .then(function(){b.disabled=false})};
+  rd.readAsDataURL(cur.f)};
 $('#dl').onclick=function(){if(cur)cur.D.save(cur.name)};
 $('#wt').onclick=function(){if(cur)window.open('https://wa.me/?text='+encodeURIComponent(cur.t),'_blank')};
 $('#cl').onclick=function(){$('#out').close()};
