@@ -4,6 +4,27 @@
 
   /* ---------- utilità ---------- */
   var $ = function (s, r) { return (r || document).querySelector(s); };
+  // più numeri nello stesso campo (separati da ; , / | a capo, " e ", "-" o spazio): ciascuno ha il suo pulsante
+  function numeriTel(raw) {
+    var parti = String(raw || '').split(/[;,\/|\n\r]+|\s+e\s+|\s+-\s+|\s{2,}/i), out = [];
+    parti.forEach(function (p) {
+      var cifre = p.replace(/[^\d+]/g, '');
+      if (cifre.replace(/\D/g, '').length >= 16) {                       // due numeri attaccati da un solo spazio
+        p.trim().split(/\s+/).reduce(function (acc, w) {
+          var l = acc.length ? acc[acc.length - 1] : null;
+          if (l !== null && (l.replace(/\D/g, '').length < 8)) acc[acc.length - 1] = l + w; else acc.push(w);
+          return acc;
+        }, []).forEach(function (w) { var c = w.replace(/[^\d+]/g, ''); if (c.replace(/\D/g, '').length >= 6) out.push(c); });
+      } else if (cifre.replace(/\D/g, '').length >= 6) out.push(cifre);
+    });
+    return out.filter(function (n, i) { return out.indexOf(n) === i; });
+  }
+  function tastiChiama(raw, classe) {
+    var n = numeriTel(raw);
+    return n.map(function (num, i) {
+      return '<a class="' + classe + '" href="tel:' + esc(num) + '">📞 Chiama' + (n.length > 1 ? ' ' + (i + 1) + ' · ' + esc(num.slice(-4)) : '') + '</a>';
+    }).join('');
+  }
   function esc(s) { return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function pad(n) { return ('0' + n).slice(-2); }
   function isoData(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -152,7 +173,7 @@
           (inCoda ? '<span class="tag giallo">In invio</span>' : (chiusa ? '<span class="tag verde">' + esc(t.inviata || t.stato) + '</span>' : '')) + '</div>' +
           (t.noteUfficio ? '<div class="muto" style="margin-top:6px">📝 ' + esc(t.noteUfficio) + '</div>' : '') +
           '<div class="azioni"><a class="btn sec flex" target="_blank" rel="noopener" href="' + urlNavigaTappa(t) + '">🧭 Naviga</a>' +
-          (t.tel ? '<a class="btn sec flex" href="tel:' + esc(String(t.tel).replace(/[^\d+]/g, '')) + '">📞 Chiama</a>' : '') +
+          tastiChiama(t.tel, 'btn sec flex') +
           '<button class="btn flex' + (chiusa ? ' sec' : '') + '" data-id="' + esc(t.id) + '">' + (chiusa ? (S.esiti[t.id] ? '💬 Reinvia / Rivedi' : 'Rivedi') : 'Compila scheda') + '</button></div></div>';
       });
     }
@@ -267,7 +288,7 @@
       '<div class="contenuto">' +
       '<div class="card"><div class="titolo">' + esc(t.indirizzo) + '</div><div class="muto">' + esc(t.comune) + ' (' + esc(t.prov) + ')</div>' +
       (t.cliente ? '<div style="margin-top:6px">👤 ' + esc(t.cliente) + '</div>' : '') +
-      (t.tel ? '<div><a href="tel:' + esc(String(t.tel).replace(/[^\d+]/g, '')) + '">📞 ' + esc(t.tel) + '</a></div>' : '') +
+      (t.tel ? '<div class="azioni" style="margin-top:6px">' + numeriTel(t.tel).map(function (n) { return '<a class="btn sec" href="tel:' + esc(n) + '">📞 ' + esc(n) + '</a>'; }).join('') + '</div>' : '') +
       (t.noteUfficio ? '<div class="muto" style="margin-top:6px">📝 ' + esc(t.noteUfficio) + '</div>' : '') + '</div>' +
       (chiusa ? '<div class="info">Questo sopralluogo risulta già chiuso (' + esc(t.inviata || t.stato) + '). Puoi guardarlo, ma l\'invio è bloccato.</div>' : '') +
       '<label class="etic">Esito del sopralluogo</label><div class="seg" id="esito">' +
