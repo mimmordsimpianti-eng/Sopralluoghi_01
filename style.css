@@ -80,3 +80,4 @@ h2.sez{font-size:17px;color:var(--blu);margin:22px 0 8px;border-bottom:2px solid
 .editor .strumenti{max-height:42vh;overflow:auto}
 .editor .tela{position:relative}
 .editor .barra-tratta{position:absolute;left:8px;right:8px;bottom:8px;background:rgba(13,17,23,.88);border-radius:12px;padding:6px}
+.foto .mod{position:absolute;left:0;right:0;bottom:0;border:0;background:rgba(31,56,100,.9);color:#fff;font-size:12px;font-weight:600;padding:6px 0}

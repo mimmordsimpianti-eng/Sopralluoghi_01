@@ -323,10 +323,11 @@
       S.bozza.foto.forEach(function (f, i) {
         if (String(f.sol || 'gen') !== tg) return;
         var u = URL.createObjectURL(f.ann || f.orig); S.urls.push(u);
-        html += '<div class="foto"><img data-i="' + i + '" src="' + u + '" alt="foto ' + f.n + '">' + (f.ann ? '<span class="bollino">modificata</span>' : '') + '<button class="x" data-del="' + i + '" aria-label="Elimina">×</button></div>';
+        html += '<div class="foto"><img data-i="' + i + '" src="' + u + '" alt="foto ' + f.n + '">' + (f.ann ? '<span class="bollino">modificata</span>' : '') + '<button class="mod" data-mod="' + i + '">✎ Modifica</button><button class="x" data-del="' + i + '" aria-label="Elimina">×</button></div>';
       });
       g.innerHTML = html;
       g.querySelectorAll('img').forEach(function (im) { im.onclick = function () { modificaFoto(+im.dataset.i); }; });
+      g.querySelectorAll('button[data-mod]').forEach(function (x) { x.onclick = function () { modificaFoto(+x.dataset.mod); }; });
       g.querySelectorAll('button[data-del]').forEach(function (x) {
         x.onclick = function () { if (confirm('Eliminare questa foto?')) { S.bozza.foto.splice(+x.dataset.del, 1); dbPut('bozze', S.bozza); mostraScheda(); } };
       });
