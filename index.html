@@ -1,195 +1,24 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8">
+<html lang="it">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sopralluogo</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0a7c86">
-<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1F3864">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Sopralluogo">
+<meta name="apple-mobile-web-app-title" content="Sopralluoghi">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<style>
-:root{--bg:#eef2f4;--card:#fff;--ink:#12303b;--mut:#5b7480;--line:#cfdbe0;--acc:#0a7c86;--accT:#fff;--err:#b42318;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a1f;--card:#16262d;--ink:#e6eff2;--mut:#93aab3;--line:#2b414a;--acc:#35b6c0;--accT:#06262a;--err:#ff8a80;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0e1a1f;--card:#16262d;--ink:#e6eff2;--mut:#93aab3;--line:#2b414a;--acc:#35b6c0;--accT:#06262a;--err:#ff8a80;color-scheme:dark}
-*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-.app{max-width:640px;margin:0 auto;padding:16px 14px 90px}
-.hd{display:flex;align-items:center;gap:12px;margin-bottom:6px}.logo{height:52px;width:auto;border-radius:6px;background:#fff;padding:2px}h1{font-size:1.5rem;margin:.2rem 0 .1rem}h2{font-size:1.05rem;margin:0 0 10px}
-.sub{color:var(--mut);margin:0 0 16px;font-size:.92rem}
-section,details.sol{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
-.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}.w{grid-column:1/-1}
-@media(max-width:420px){.g{grid-template-columns:1fr}}
-label.f{display:flex;flex-direction:column;gap:4px;font-size:.88rem;color:var(--mut)}
-label.f b{color:var(--err)}
-input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;width:100%;min-height:44px}
-input:focus,select:focus,textarea:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
-.row{display:flex;gap:8px}.row input{flex:1}
-button{font:inherit;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer}
-button.p{background:var(--acc);color:var(--accT);font-weight:600}
-button.x{border-color:var(--line);color:var(--mut);min-height:36px;padding:0 10px;font-size:.85rem}
-summary{cursor:pointer;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
-details.sol[open] summary{margin-bottom:12px}
-.th{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.th img{width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
-.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;justify-content:center}
-.bar button{flex:1;max-width:300px}
-dialog{width:min(600px,94vw);background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px}
-pre{white-space:pre-wrap;word-break:break-word;background:var(--bg);padding:10px;border-radius:8px;max-height:50vh;overflow:auto;font:.85rem/1.4 ui-monospace,Menlo,monospace}
-#rep{display:none;color:#000;background:#fff;padding:10px;font:12px/1.4 sans-serif}
-#rep table{border-collapse:collapse;width:100%;margin-bottom:10px}#rep td{border:1px solid #999;padding:4px 6px;vertical-align:top}#rep td:first-child{width:32%;font-weight:600}
-#rep img{width:31%;margin:1%;border:1px solid #999}#rep h2{margin:14px 0 6px}
-@media print{.app,.bar,dialog{display:none!important}#rep{display:block!important}body{background:#fff}}
-</style></head><body>
-<div class="app">
-<div class="hd"><img class="logo" src="logo.png" alt="RDS Impianti"><h1>Sopralluogo</h1></div>
-<p class="sub">Verifica tecnica preliminare con soluzioni e fotografie. I campi con * sono obbligatori.</p>
-<form id="m" novalidate>
-<section><h2>Identificazione</h2><div class="g">
-<label class="f w">Codice OLO / W.O. / ID attività *<input name="olo" required></label>
-<label class="f">Data intervento *<input name="data" type="date" required></label>
-<label class="f">Squadra / impresa *<input name="squadra" required></label>
-<label class="f w">Tecnico *<input name="tecnico" required></label>
-<label class="f w">Indirizzo completo *<input name="indirizzo" required></label>
-<label class="f w">Comune *<input name="comune" required></label>
-</div></section>
-<section><h2>Verifica civico</h2><div class="g">
-<label class="f">Civico diverso dalla pratica? *<select name="civdiv" required><option value="">Seleziona</option><option>No</option><option>Sì</option></select></label>
-<label class="f">Civico rilevato in campo<input name="civ"></label>
-<label class="f w">Coordinate civico<div class="row"><input name="civcoord" inputmode="decimal"><button type="button" class="gps">Rileva</button></div></label>
-</div></section>
-<h2 style="margin:18px 2px 8px">Soluzioni proposte</h2>
-<p class="sub">Servono almeno due soluzioni (principale e secondaria). Se non c’è una secondaria, aprila e spunta l’apposita casella.</p>
-<div id="sols"></div>
-<button type="button" id="add">+ Aggiungi soluzione</button>
-</form></div>
-<div class="bar"><button type="button" id="sv">Salva bozza</button><button type="button" id="ld">Carica bozza</button><button type="button" class="p" id="gen">Genera testo e PDF</button></div>
-<dialog id="out"><h2>Testo per XME</h2><pre id="txt"></pre><div class="row" style="margin-top:10px;flex-wrap:wrap"><button type="button" class="p w" style="flex:1 1 100%" id="wa">Invia su WhatsApp (PDF + testo)</button><button type="button" class="p w" style="flex:1 1 100%" id="sd">Salva su Drive e foglio</button><p id="st" class="sub" style="flex:1 1 100%;margin:0"></p><button type="button" id="dl">Scarica PDF</button><button type="button" id="wt">Solo testo su WhatsApp</button><button type="button" id="cp">Copia testo</button><button type="button" id="cl">Chiudi</button></div></dialog>
-<script>
-var $=function(s,r){return(r||document).querySelector(s)},sols=$('#sols'),photos=new WeakMap();
-var POS=['Palifica','Facciata edificio','Pozzetto','Locali tecnici'],FEA=['Fattibile','Fattibile con opere civili','Non fattibile'];
-function opts(a){return '<option value="">Seleziona</option>'+a.map(function(x){return '<option>'+x+'</option>'}).join('')}
-function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-function title(i){return i==0?'Soluzione principale':i==1?'Soluzione secondaria':'Soluzione alternativa '+(i)}
-function addSol(){
-  var i=sols.children.length,d=document.createElement('details');d.className='sol';d.open=true;
-  d.innerHTML='<summary><span class="tt">'+title(i)+'</span>'+(i>1?'<button type="button" class="x rm">Rimuovi</button>':'')+'</summary>'+
-  (i==1?'<label class="f w" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="nosec" style="width:auto;min-height:0"> Non è presente una soluzione secondaria</label>':'')+
-  '<div class="g body">'+
-  '<label class="f">Numero ROE *<input name="roe" required></label>'+
-  '<label class="f">Posizione ROE *<select name="pos" required>'+opts(POS)+'</select></label>'+
-  '<label class="f w">Coordinate ROE *<div class="row"><input name="coord" required inputmode="decimal"><button type="button" class="gps">Rileva</button></div></label>'+
-  '<label class="f">Numero CNO *<input name="cno" required></label>'+
-  '<label class="f">Esito *<select name="esito" required>'+opts(FEA)+'</select></label>'+
-  '<label class="f">Metri di scavo previsti<input name="scavo" type="number" min="0" inputmode="decimal"></label>'+
-  '<label class="f w">Intervento necessario<textarea name="interv" rows="2"></textarea></label>'+
-  '<label class="f w">Note<textarea name="note" rows="2"></textarea></label>'+
-  '<label class="f w">Fotografie (ROE, percorso, civico)<input type="file" accept="image/*" multiple class="ph"><div class="th"></div></label></div>';
-  sols.appendChild(d);photos.set(d,[]);
-}
-function sel(d){return [].slice.call(d.querySelectorAll('.body [name]'))}
-document.addEventListener('click',function(e){
-  var t=e.target;
-  if(t.classList.contains('gps')){var inp=$('input',t.parentNode);t.textContent='…';
-    navigator.geolocation.getCurrentPosition(function(p){inp.value=p.coords.latitude.toFixed(6)+', '+p.coords.longitude.toFixed(6);t.textContent='Rileva'},function(){t.textContent='Rileva';alert('Posizione non disponibile. Scrivi le coordinate a mano.')},{enableHighAccuracy:true,timeout:15000});}
-  if(t.classList.contains('rm')){e.preventDefault();t.closest('details').remove();[].forEach.call(sols.children,function(d,i){$('.tt',d).textContent=title(i)})}
-});
-document.addEventListener('change',function(e){
-  var t=e.target,d=t.closest&&t.closest('details.sol');
-  if(t.name==='nosec'){sel(d).forEach(function(x){x.disabled=t.checked})}
-  if(t.classList.contains('ph')){var arr=photos.get(d),th=$('.th',d);
-    [].forEach.call(t.files,function(f){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){
-      var k=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;
-      c.getContext('2d').drawImage(im,0,0,c.width,c.height);var u=c.toDataURL('image/jpeg',.72);arr.push(u);
-      var g=new Image();g.src=u;th.appendChild(g)};im.src=r.result};r.readAsDataURL(f)});t.value='';}
-});
-$('#add').onclick=addSol;
-function val(r,n){var e=$('[name="'+n+'"]',r);return e?(e.type==='checkbox'?e.checked:e.value.trim()):''}
-function collect(){
-  var m=$('#m'),o={};['olo','data','squadra','tecnico','indirizzo','comune','civdiv','civ','civcoord'].forEach(function(n){o[n]=val(m,n)});
-  o.sols=[].map.call(sols.children,function(d,i){var s={t:title(i),foto:photos.get(d)||[],nosec:val(d,'nosec')};
-    ['roe','pos','coord','cno','esito','scavo','interv','note'].forEach(function(n){s[n]=val(d,n)});return s});return o}
-function text(o){
-  var L=['SOPRALLUOGO','OLO / W.O.: '+o.olo,'Data: '+o.data,'Squadra: '+o.squadra,'Tecnico: '+o.tecnico,'Indirizzo: '+o.indirizzo+', '+o.comune,
-    'Civico diverso da pratica: '+o.civdiv+(o.civ?' (rilevato: '+o.civ+')':'')+(o.civcoord?' - coordinate: '+o.civcoord:'')];
-  o.sols.forEach(function(s){L.push('');L.push(s.t.toUpperCase());
-    if(s.nosec){L.push('Non è presente una soluzione secondaria.');return}
-    L.push('ROE: '+s.roe+' ('+s.pos+') - coordinate '+s.coord,'CNO: '+s.cno,'Esito: '+s.esito);
-    if(s.scavo)L.push('Scavo previsto: '+s.scavo+' m');if(s.interv)L.push('Intervento: '+s.interv);if(s.note)L.push('Note: '+s.note);
-    L.push('Foto allegate: '+s.foto.length)});
-  return L.join('\n')}
-function mkpdf(o){
-  var D=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),y=40,W=182,X=14,z=0;
-  function need(h){if(y+h>278){D.addPage();y=18}}
-  D.setFillColor(10,124,134);D.rect(0,0,210,30,'F');
-  D.setTextColor(255,255,255);D.setFont('helvetica','bold');D.setFontSize(20);D.text('Sopralluogo tecnico',X,15);
-  D.setFont('helvetica','normal');D.setFontSize(10);D.text('RDS Impianti',X,22);
-  D.setFontSize(10);D.text('OLO / W.O.: '+o.olo,196,14,{align:'right'});D.text('Data: '+o.data.split('-').reverse().join('/'),196,21,{align:'right'});
-  function head(t){need(18);y+=4;D.setFillColor(10,124,134);D.rect(X,y-4.5,1.6,6,'F');D.setFont('helvetica','bold');D.setFontSize(12);D.setTextColor(18,48,59);D.text(t,X+4,y);y+=4;z=0}
-  function row(k,v){if(!v)return;var L=D.splitTextToSize(String(v),W-56),hh=L.length*4.8+3;need(hh);
-    if(z%2==0){D.setFillColor(238,243,245);D.rect(X,y-1,W,hh,'F')}z++;
-    D.setFont('helvetica','bold');D.setFontSize(9.5);D.setTextColor(91,116,128);D.text(k,X+2,y+3.6);
-    D.setFont('helvetica','normal');D.setFontSize(10);D.setTextColor(18,48,59);D.text(L,X+54,y+3.6);y+=hh}
-  head('Identificazione');row('OLO / W.O.',o.olo);row('Data intervento',o.data.split('-').reverse().join('/'));row('Squadra / impresa',o.squadra);row('Tecnico',o.tecnico);row('Indirizzo',o.indirizzo+', '+o.comune);
-  head('Verifica civico');row('Civico diverso da pratica',o.civdiv);row('Civico rilevato',o.civ);row('Coordinate civico',o.civcoord);
-  o.sols.forEach(function(s){head(s.t);
-    if(s.nosec){row('Esito','Non è presente una soluzione secondaria');return}
-    row('ROE',s.roe+' ('+s.pos+')');row('Coordinate ROE',s.coord);row('CNO',s.cno);row('Esito',s.esito);row('Scavo previsto',s.scavo?s.scavo+' m':'');row('Intervento',s.interv);row('Note',s.note);
-    var cw=(W-8)/3,ch=cw*0.75,col=0,n=0;y+=3;
-    s.foto.forEach(function(u){var p=D.getImageProperties(u),r=Math.min(cw/p.width,ch/p.height),w=p.width*r,hi=p.height*r;
-      if(col==0)need(ch+9);var x=X+col*(cw+4);D.addImage(u,'JPEG',x,y,w,hi);D.setDrawColor(190,205,211);D.rect(x,y,w,hi);
-      D.setFont('helvetica','normal');D.setFontSize(8);D.setTextColor(91,116,128);D.text('Foto '+(++n),x,y+hi+3.8);
-      col++;if(col==3){col=0;y+=ch+8}});
-    if(col)y+=ch+8});
-  var N=D.getNumberOfPages();
-  for(var i=1;i<=N;i++){D.setPage(i);D.setDrawColor(190,205,211);D.line(X,285,X+W,285);D.setFont('helvetica','normal');D.setFontSize(8);D.setTextColor(91,116,128);
-    D.text('RDS Impianti - Sopralluogo '+o.olo,X,290);D.text('Pagina '+i+' di '+N,X+W,290,{align:'right'})}
-  return D}
-var cur=null;
-$('#gen').onclick=function(){
-  var m=$('#m');[].forEach.call(sols.children,function(d){d.open=true});
-  if(sols.children.length<2){alert('Servono almeno due soluzioni: principale e secondaria.');return}
-  if(!m.reportValidity())return;
-  if(!window.jspdf){alert('Libreria PDF non caricata. Collegati a internet e riprova.');return}
-  var o=collect(),t=text(o),D=mkpdf(o),name='Sopralluogo_'+(o.olo||'').replace(/[^\w-]+/g,'_')+'.pdf';
-  cur={o:o,D:D,t:t,name:name,f:new File([D.output('blob')],name,{type:'application/pdf'})};
-  $('#txt').textContent=t;$('#cp').textContent='Copia testo';$('#st').textContent='';$('#out').showModal()};
-$('#wa').onclick=function(){if(!cur)return;
-  if(navigator.canShare&&navigator.canShare({files:[cur.f]})){navigator.share({files:[cur.f],text:cur.t,title:cur.name}).catch(function(){})}
-  else{cur.D.save(cur.name);window.open('https://wa.me/?text='+encodeURIComponent(cur.t),'_blank')}};
-var SCRIPT_URL='https://script.google.com/macros/s/AKfycbyObqUkooTSGN7S5kFoPObRPIWH_AnaG02fqSCJKwS6d1nW7fVoXhmV0zbn7Q03xc9h/exec';
-if(SCRIPT_URL.indexOf('http')!==0)$('#sd').style.display='none';
-function rowData(o){
-  var H=['Inviato il','OLO / W.O.','Data intervento','Squadra','Tecnico','Indirizzo','Comune','Civico diverso','Civico rilevato','Coordinate civico'],
-      R=[new Date().toLocaleString('it-IT'),o.olo,o.data,o.squadra,o.tecnico,o.indirizzo,o.comune,o.civdiv,o.civ,o.civcoord];
-  ['Principale','Secondaria'].forEach(function(n,i){var s=o.sols[i]||{};
-    H.push(n+' - ROE',n+' - Posizione',n+' - Coordinate',n+' - CNO',n+' - Esito',n+' - Scavo m',n+' - Intervento',n+' - Note');
-    R.push(s.nosec?'Non presente':(s.roe||''),s.pos||'',s.coord||'',s.cno||'',s.esito||'',s.scavo||'',s.interv||'',s.note||'')});
-  H.push('Altre soluzioni');R.push(o.sols.slice(2).map(function(s){return s.t+': ROE '+s.roe+', CNO '+s.cno+', '+s.esito}).join(' | '));
-  H.push('Link PDF');return{h:H,r:R}}
-$('#sd').onclick=function(){if(!cur)return;
-  if(cur.sent&&!confirm('Questo sopralluogo risulta già salvato. Salvarlo di nuovo?'))return;
-  var b=$('#sd'),st=$('#st'),d=rowData(cur.o),rd=new FileReader();b.disabled=true;st.textContent='Invio in corso…';
-  rd.onload=function(){var pdf=rd.result.split(',')[1];
-    fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({name:cur.name,pdf:pdf,headers:d.h,row:d.r})})
-    .then(function(r){return r.json()}).then(function(j){if(!j.ok)throw new Error(j.error||'errore');cur.sent=true;st.textContent='Salvato: PDF su Drive e riga nel foglio.'})
-    .catch(function(e){st.textContent='Invio non confermato ('+e.message+'). Controlla la connessione, poi verifica il foglio prima di riprovare.'})
-    .then(function(){b.disabled=false})};
-  rd.readAsDataURL(cur.f)};
-$('#dl').onclick=function(){if(cur)cur.D.save(cur.name)};
-$('#wt').onclick=function(){if(cur)window.open('https://wa.me/?text='+encodeURIComponent(cur.t),'_blank')};
-$('#cl').onclick=function(){$('#out').close()};
-$('#cp').onclick=function(){var t=$('#txt').textContent;
-  try{navigator.clipboard.writeText(t).then(function(){$('#cp').textContent='Copiato'})}catch(e){var r=document.createRange();r.selectNodeContents($('#txt'));var s=getSelection();s.removeAllRanges();s.addRange(r)}};
-var KEY='sopralluogo-bozza';
-$('#sv').onclick=function(){var o=collect();o.sols.forEach(function(s){s.foto=[]});
-  try{localStorage.setItem(KEY,JSON.stringify(o));alert('Bozza salvata. Le foto non vengono salvate nella bozza.')}catch(e){alert('Salvataggio non disponibile in questo browser.')}};
-$('#ld').onclick=function(){var o;try{o=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
-  if(!o){alert('Nessuna bozza trovata.');return}
-  var m=$('#m');Object.keys(o).forEach(function(n){var e=$('[name="'+n+'"]',m);if(e&&n!=='sols')e.value=o[n]});
-  sols.innerHTML='';o.sols.forEach(function(s,i){addSol();var d=sols.children[i];Object.keys(s).forEach(function(n){var e=$('[name="'+n+'"]',d);if(!e)return;
-    if(e.type==='checkbox'){e.checked=s[n];e.dispatchEvent(new Event('change',{bubbles:true}))}else e.value=s[n]})})};
-addSol();addSol();
-if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
-</script></body></html>
+<title>RDS Sopralluoghi</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" role="status"></div>
+<script src="config.js"></script>
+<script src="editor.js"></script>
+<script src="pdf.js"></script>
+<script src="zip.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

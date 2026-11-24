@@ -1,17 +1,15 @@
 {
-  "name": "Sopralluogo RDS Impianti",
-  "short_name": "Sopralluogo",
-  "description": "Scheda di sopralluogo tecnico con foto, GPS e testo per XME",
+  "name": "RDS Sopralluoghi",
+  "short_name": "Sopralluoghi",
+  "description": "Giro e schede sopralluogo per i tecnici RDS Impianti",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#eef2f4",
-  "theme_color": "#0a7c86",
-  "lang": "it",
+  "background_color": "#1F3864",
+  "theme_color": "#1F3864",
   "icons": [
-    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-    {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

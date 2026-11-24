@@ -1,8 +1,27 @@
-const CACHE='sopralluogo-v2';
-const FILES=['./','./index.html','./manifest.webmanifest','./logo.png','./icon-192.png','./icon-512.png'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
-self.addEventListener('fetch',e=>{
-  if(e.request.method!=='GET')return;
-  e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(x=>x.put(e.request,c));return r}).catch(()=>caches.match(e.request).then(m=>m||caches.match('./index.html'))));
+// Service worker: l'app si apre anche senza rete (le chiamate al server non vengono mai messe in cache).
+var CACHE = 'rds-sopralluoghi-v2';
+var FILES = ['./', 'index.html', 'style.css', 'config.js', 'editor.js', 'pdf.js', 'zip.js', 'app.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
+
+self.addEventListener('install', function (e) {
+  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
+});
+
+self.addEventListener('activate', function (e) {
+  e.waitUntil(caches.keys().then(function (keys) {
+    return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+  }).then(function () { return self.clients.claim(); }));
+});
+
+self.addEventListener('fetch', function (e) {
+  var req = e.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  e.respondWith(
+    caches.match(req).then(function (cached) {
+      var rete = fetch(req).then(function (resp) {
+        if (resp && resp.ok) { var copia = resp.clone(); caches.open(CACHE).then(function (c) { c.put(req, copia); }); }
+        return resp;
+      }).catch(function () { return cached; });
+      return cached || rete;
+    })
+  );
 });
