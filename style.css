@@ -76,3 +76,7 @@ h2.sez{font-size:17px;color:var(--blu);margin:22px 0 8px;border-bottom:2px solid
 .btn-icona.sm{background:#FDECEA;color:#8E1B1B;padding:6px 10px}
 .ok-box{background:#DCEFDD;color:#1B5E20;border-radius:12px;padding:16px;font-size:20px;font-weight:700;text-align:center;margin-bottom:10px}
 .info.ok{background:#DCEFDD;color:#1B5E20}
+.editor .suggerimento{color:#c9d1d9;font-size:13px}
+.editor .strumenti{max-height:42vh;overflow:auto}
+.editor .tela{position:relative}
+.editor .barra-tratta{position:absolute;left:8px;right:8px;bottom:8px;background:rgba(13,17,23,.88);border-radius:12px;padding:6px}
