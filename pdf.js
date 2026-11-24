@@ -40,7 +40,7 @@ var PdfScheda = (function () {
     return out;
   }
   function num(n) { return (Math.round(n * 100) / 100).toString(); }
-  var TEAL = '0.039 0.486 0.525', W = 595.28, H = 841.89, M = 40;
+  var TEAL = '0.91 0.46 0.10', GRIGIO = '0.29 0.31 0.34', W = 595.28, H = 841.89, M = 40;
 
   function leggi(blob) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(new Uint8Array(r.result)); }; r.onerror = rej; r.readAsArrayBuffer(blob); }); }
 
@@ -50,30 +50,40 @@ var PdfScheda = (function () {
     return Promise.all(immagini.map(function (f) { return leggi(f.blob).then(function (b) { f.bytes = b; }); })).then(function () {
       var pagine = [], cs = [], y = 0, usate = [];     // usate: immagini referenziate per pagina
       function nuova() { cs = []; usate = []; pagine.push({ cs: cs, img: usate }); y = H - M; }
-      function t(x, yy, s, size, bold, rgb) { cs.push('BT /' + (bold ? 'F2' : 'F1') + ' ' + size + ' Tf ' + (rgb || '0.1 0.13 0.19') + ' rg ' + num(x) + ' ' + num(yy) + ' Td (' + esc(s) + ') Tj ET'); }
+      function t(x, yy, s, size, bold, rgb) { cs.push('BT /' + (bold ? 'F2' : 'F1') + ' ' + size + ' Tf ' + (rgb || '0.15 0.16 0.18') + ' rg ' + num(x) + ' ' + num(yy) + ' Td (' + esc(s) + ') Tj ET'); }
       function serve(h) { if (y - h < M + 20) nuova(); }
       function img(f, x, yy, w, h) { var i = immagini.indexOf(f); if (usate.indexOf(i) < 0) usate.push(i); cs.push('q ' + num(w) + ' 0 0 ' + num(h) + ' ' + num(x) + ' ' + num(yy) + ' cm /Im' + i + ' Do Q'); }
 
       nuova();
-      // fascia titolo
-      cs.push(TEAL + ' rg 0 ' + num(H - 78) + ' ' + num(W) + ' 78 re f');
+      // fascia titolo: arancione, con filetto grigio e logo su riquadro bianco
+      cs.push(GRIGIO + ' rg 0 ' + num(H - 78) + ' ' + num(W) + ' 78 re f');
+      cs.push(TEAL + ' rg 0 ' + num(H - 84) + ' ' + num(W) + ' 6 re f');
       t(M, H - 36, m.titolo || 'SCHEDA SOPRALLUOGO', 20, true, '1 1 1');
-      if (m.sottotitolo) t(M, H - 56, m.sottotitolo, 10.5, false, '0.9 0.97 0.98');
-      if (m.logo) { var lh = 44, lw = lh * m.logo.w / m.logo.h; img(m.logo, W - M - lw, H - 62, lw, lh); }
-      y = H - 78 - 24;
+      if (m.sottotitolo) t(M, H - 56, m.sottotitolo, 10.5, false, '0.85 0.87 0.9');
+      if (m.logo) {
+        var lh = 48, lw = Math.min(lh * m.logo.w / m.logo.h, 150);
+        cs.push('1 1 1 rg ' + num(W - M - lw - 10) + ' ' + num(H - 66) + ' ' + num(lw + 20) + ' 56 re f');
+        img(m.logo, W - M - lw, H - 62, lw, lh);
+      } else {                                           // nessun file logo: marchio scritto
+        cs.push('1 1 1 rg ' + num(W - M - 110) + ' ' + num(H - 66) + ' 120 56 re f');
+        t(W - M - 100, H - 42, 'RDS', 24, true, GRIGIO);
+        t(W - M - 100, H - 56, 'IMPIANTI', 10, true, TEAL);
+      }
+      y = H - 84 - 22;
 
       (m.sezioni || []).forEach(function (s) {
         serve(40);
         if (s.titolo) {
-          t(M, y, s.titolo.toUpperCase(), 11, true, TEAL);
-          cs.push(TEAL + ' RG 0.8 w ' + num(M) + ' ' + num(y - 4) + ' m ' + num(W - M) + ' ' + num(y - 4) + ' l S');
-          y -= 20;
+          cs.push('0.92 0.93 0.94 rg ' + num(M - 6) + ' ' + num(y - 7) + ' ' + num(W - 2 * M + 12) + ' 21 re f');
+          cs.push(TEAL + ' rg ' + num(M - 6) + ' ' + num(y - 7) + ' 4 21 re f');
+          t(M + 4, y, s.titolo.toUpperCase(), 11, true, GRIGIO);
+          y -= 24;
         }
         (s.righe || []).forEach(function (r) {
           var vl = righe(r[1], 10, false, W - M - 175), el = righe(r[0], 9, true, 125);
           var n = Math.max(vl.length, el.length);
           serve(n * 13 + 3);
-          el.forEach(function (l, i) { t(M, y - i * 13, l, 9, true, '0.35 0.4 0.48'); });
+          el.forEach(function (l, i) { t(M, y - i * 13, l, 9, true, GRIGIO); });
           vl.forEach(function (l, i) { t(M + 135, y - i * 13, l, 10, false); });
           y -= n * 13 + 3;
         });
@@ -85,8 +95,9 @@ var PdfScheda = (function () {
 
       var fl = m.foto || [];
       if (fl.length) {
-        serve(60); t(M, y, 'FOTO (' + fl.length + ')', 11, true, TEAL);
-        cs.push(TEAL + ' RG 0.8 w ' + num(M) + ' ' + num(y - 4) + ' m ' + num(W - M) + ' ' + num(y - 4) + ' l S'); y -= 22;
+        serve(60);
+        cs.push('0.92 0.93 0.94 rg ' + num(M - 6) + ' ' + num(y - 7) + ' ' + num(W - 2 * M + 12) + ' 21 re f'); cs.push(TEAL + ' rg ' + num(M - 6) + ' ' + num(y - 7) + ' 4 21 re f');
+        t(M + 4, y, 'FOTO (' + fl.length + ')', 11, true, GRIGIO); y -= 26;
         var cw = (W - 2 * M - 14) / 2, i = 0;
         while (i < fl.length) {
           var riga = fl.slice(i, i + 2), alt = 0;
@@ -95,14 +106,14 @@ var PdfScheda = (function () {
           riga.forEach(function (f, k) {
             var h = Math.min(cw * f.h / f.w, 300), w = h * f.w / f.h, x = M + k * (cw + 14);
             img(f, x, y - h, w, h);
-            if (f.didascalia) { righe(f.didascalia, 8.5, false, cw).slice(0, 2).forEach(function (l, j) { t(x, y - h - 11 - j * 10, l, 8.5, false, '0.35 0.4 0.48'); }); }
+            if (f.didascalia) { righe(f.didascalia, 8.5, false, cw).slice(0, 2).forEach(function (l, j) { t(x, y - h - 11 - j * 10, l, 8.5, false, GRIGIO); }); }
           });
           y -= alt + 32; i += 2;
         }
       }
 
       // piè di pagina
-      pagine.forEach(function (p, i) { p.cs.push('BT /F1 8 Tf 0.5 0.55 0.6 rg ' + num(M) + ' 22 Td (' + esc('RDS Impianti – scheda sopralluogo') + ') Tj ET'); p.cs.push('BT /F1 8 Tf 0.5 0.55 0.6 rg ' + num(W - M - 50) + ' 22 Td (' + esc('Pagina ' + (i + 1) + ' di ' + pagine.length) + ') Tj ET'); });
+      pagine.forEach(function (p, i) { p.cs.push(TEAL + ' RG 1 w ' + num(M) + ' 36 m ' + num(W - M) + ' 36 l S'); p.cs.push('BT /F1 8 Tf 0.4 0.42 0.45 rg ' + num(M) + ' 22 Td (' + esc('RDS Impianti – scheda sopralluogo') + ') Tj ET'); p.cs.push('BT /F1 8 Tf 0.4 0.42 0.45 rg ' + num(W - M - 50) + ' 22 Td (' + esc('Pagina ' + (i + 1) + ' di ' + pagine.length) + ') Tj ET'); });
 
       /* ---- serializzazione ---- */
       var parti = [], off = [], len = 0;

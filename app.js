@@ -435,10 +435,18 @@
     o.push('Foto allegate: ' + nFoto);
     return o.join('\n');
   }
+  // cerca logo.png o logo.jpg nella cartella dell'app; lo converte in JPEG su fondo bianco (il PDF accetta JPEG)
   function caricaLogo() {
-    return fetch('logo.jpg').then(function (r) { if (!r.ok) throw 0; return r.blob(); }).then(function (blob) {
-      return createImageBitmap(blob).then(function (bm) { return { blob: blob, w: bm.width, h: bm.height }; });
-    }).catch(function () { return null; });
+    function prova(nome) {
+      return fetch(nome).then(function (r) { if (!r.ok) throw 0; return r.blob(); }).then(function (blob) {
+        return createImageBitmap(blob).then(function (bm) {
+          var w = Math.min(bm.width, 600), h = Math.round(bm.height * w / bm.width), cv = document.createElement('canvas');
+          cv.width = w; cv.height = h; var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(bm, 0, 0, w, h);
+          return new Promise(function (res, rej) { cv.toBlob(function (b) { b ? res({ blob: b, w: w, h: h }) : rej(); }, 'image/jpeg', 0.92); });
+        });
+      });
+    }
+    return prova('logo.png').catch(function () { return prova('logo.jpg'); }).catch(function () { return null; });
   }
 
   function concludi() {
