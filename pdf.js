@@ -97,7 +97,7 @@ var PdfScheda = (function () {
       if (fl.length) {
         serve(60);
         cs.push('0.92 0.93 0.94 rg ' + num(M - 6) + ' ' + num(y - 7) + ' ' + num(W - 2 * M + 12) + ' 21 re f'); cs.push(TEAL + ' rg ' + num(M - 6) + ' ' + num(y - 7) + ' 4 21 re f');
-        t(M + 4, y, 'FOTO (' + fl.length + ')', 11, true, GRIGIO); y -= 26;
+        t(M + 4, y, m.titoloFoto || ('FOTO (' + fl.length + ')'), 11, true, GRIGIO); y -= 26;
         var cw = (W - 2 * M - 14) / 2, i = 0;
         while (i < fl.length) {
           var riga = fl.slice(i, i + 2), alt = 0;
@@ -113,7 +113,7 @@ var PdfScheda = (function () {
       }
 
       // piè di pagina
-      pagine.forEach(function (p, i) { p.cs.push(TEAL + ' RG 1 w ' + num(M) + ' 36 m ' + num(W - M) + ' 36 l S'); p.cs.push('BT /F1 8 Tf 0.4 0.42 0.45 rg ' + num(M) + ' 22 Td (' + esc('RDS Impianti – scheda sopralluogo') + ') Tj ET'); p.cs.push('BT /F1 8 Tf 0.4 0.42 0.45 rg ' + num(W - M - 50) + ' 22 Td (' + esc('Pagina ' + (i + 1) + ' di ' + pagine.length) + ') Tj ET'); });
+      pagine.forEach(function (p, i) { p.cs.push(TEAL + ' RG 1 w ' + num(M) + ' 36 m ' + num(W - M) + ' 36 l S'); p.cs.push('BT /F1 8 Tf 0.4 0.42 0.45 rg ' + num(M) + ' 22 Td (' + esc(m.piede || 'RDS Impianti – scheda sopralluogo') + ') Tj ET'); p.cs.push('BT /F1 8 Tf 0.4 0.42 0.45 rg ' + num(W - M - 50) + ' 22 Td (' + esc('Pagina ' + (i + 1) + ' di ' + pagine.length) + ') Tj ET'); });
 
       /* ---- serializzazione ---- */
       var parti = [], off = [], len = 0;

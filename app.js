@@ -215,7 +215,8 @@
   function apriScheda(id) {
     var t = S.giro.tappe.filter(function (x) { return x.id === id; })[0];
     if (!t) return;
-    S.stop = t;
+    S.stop = t; S.ppVerbale = false;
+    if (!S.ppAgg) { S.ppAgg = true; api('ppTesti').then(function (j) { if (j.testi) Dich.salvaTesti(j.testi); }).catch(function () { /* usa i testi già presenti */ }); }
     dbGet('bozze', id).then(function (b) {
       S.bozza = b || { id: id, esito: 'Completato', risposte: {}, sol: [], foto: [] };
       S.bozza.sol = S.bozza.sol || [];
@@ -254,10 +255,151 @@
   }
 
   function aggiornaVisibilita() {
+    if (typeof disegnaPP === 'function' && app.querySelector('#blocco-pp')) { var gia = !app.querySelector('#blocco-pp').classList.contains('nascosto'); if (gia !== ppVisibile()) disegnaPP(); }
     campiCfg().forEach(function (cf) {
       var el = app.querySelector('[data-campo="' + cf.k + '"]');
       if (el) el.classList.toggle('nascosto', !campoVisibile(cf));
     });
+  }
+
+
+  /* ---- dichiarazione del cliente (scavi in proprietà privata) ---- */
+  function ppVisibile() { var b = S.bozza; return !!b && b.esito === 'Completato' && !!b.risposte && b.risposte.scavi_pp === 'Sì'; }
+  function ppDati(t, nome) { return { nome: nome || t.cliente || '', indirizzo: t.indirizzo, comune: t.comune, olo: t.olo, soc: t.soc }; }
+  function waNumero(n) {
+    var c = String(n).replace(/[^\d+]/g, '');
+    if (c.indexOf('+') === 0) return c.slice(1);
+    if (c.indexOf('00') === 0) return c.slice(2);
+    if (c.length === 10 && c.charAt(0) === '3') return '39' + c;
+    if (c.charAt(0) === '0') return '39' + c;
+    return c;
+  }
+  function ppSincronizza() {          // la scelta del cliente riempie "Cliente accetta" della checklist
+    var b = S.bozza, p = b && b.pp;
+    if (!p || !p.scelta) return;
+    b.risposte.cliente_accetta = p.scelta === 'Accetta' ? 'Sì' : 'No';
+  }
+  function htmlPP(t, b, chiusa) {
+    var p = b.pp, h = '<h2 class="sez">Dichiarazione del cliente – proprietà privata <span class="obb">*</span></h2>';
+    var scelta = function (v) { return v === 'Non accetta' ? '<b style="color:var(--rosso)">NON ACCETTA</b>' : '<b style="color:var(--verde)">ACCETTA</b>'; };
+    if (S.ppVerbale && !p) {
+      return h + '<div class="card"><div class="info">Prova più debole: la dichiarazione è solo tua. Usala solo se il cliente non può firmare né aprire il link.</div>' +
+        '<label class="etic">Cosa ha dichiarato il cliente?</label><div class="seg" id="ppv-sc"><button type="button" data-v="Accetta">ACCETTA</button><button type="button" data-v="Non accetta">NON ACCETTA</button></div>' +
+        '<label class="etic">Motivo per cui non c\'è la firma <span class="obb">*</span></label><textarea id="ppv-motivo" placeholder="es. cliente al telefono, senza WhatsApp; rifiuta di firmare…"></textarea>' +
+        '<div class="azioni"><button type="button" class="btn sec flex" data-pp="annulla">Annulla</button><button type="button" class="btn flex" data-pp="verbale-salva">Salva</button></div><div id="ppv-err"></div></div>';
+    }
+    if (!p) {
+      var nn = numeriTel(t.tel);
+      return h + '<div class="info">È obbligatorio lasciare una traccia della scelta del cliente sugli scavi in proprietà privata. Come l\'hai raccolta?</div>' +
+        '<div class="azioni" style="flex-direction:column">' +
+        '<button type="button" class="btn grande" data-pp="persona"' + (chiusa ? ' disabled' : '') + '>✍ Il cliente firma qui, adesso</button>' +
+        (nn.length ? nn.map(function (n) { return '<button type="button" class="btn grande" data-pp="link" data-n="' + esc(n) + '"' + (chiusa ? ' disabled' : '') + '>📲 Invia il link su WhatsApp' + (nn.length > 1 ? ' · ' + esc(n.slice(-4)) : '') + '</button>'; }).join('')
+          : '<div class="errore">Manca il telefono del cliente: non posso inviare il link.</div>') +
+        '<button type="button" class="btn sec grande" data-pp="verbale"' + (chiusa ? ' disabled' : '') + '>🗣 Solo verbale (senza firma)</button></div>';
+    }
+    var corpo;
+    if (p.modalita === 'Di persona') corpo = '<div class="ok-box" style="font-size:16px">✓ Firmata di persona</div><div>' + esc(p.nome) + ' · ' + scelta(p.scelta) + '</div><div class="muto">' + esc(p.dataOra || '') + (p.gps ? ' · posizione registrata' : ' · posizione non disponibile') + '</div>';
+    else if (p.modalita === 'A distanza') {
+      var st = p.stato || 'In attesa';
+      corpo = '<div class="' + (st === 'Firmata' ? 'ok-box' : 'info') + '" style="font-size:16px">' + (st === 'Firmata' ? '✓ Il cliente ha firmato' : st === 'Scaduto' ? '⚠ Link scaduto' : '⏳ Link inviato, in attesa del cliente') + '</div>' +
+        (p.scelta ? '<div>' + esc(p.firmatario || '') + ' · ' + scelta(p.scelta) + '</div>' : '') +
+        '<div class="azioni"><button type="button" class="btn sec flex" data-pp="stato">↻ Controlla stato</button>' + (st !== 'Firmata' ? '<button type="button" class="btn sec flex" data-pp="reinvia">📲 Reinvia</button>' : '') + '</div>' +
+        (st !== 'Firmata' ? '<div class="muto" style="margin-top:6px">Puoi concludere il sopralluogo anche se il cliente non ha ancora firmato: l\'ufficio vedrà “in attesa” e non chiuderà la pratica come rinuncia.</div>' : '');
+    } else corpo = '<div class="info" style="border-left:4px solid var(--arancio)"><b>⚠ Solo verbale</b> – ' + scelta(p.scelta) + '<br>' + esc(p.motivo || '') + '</div>';
+    return h + '<div class="card">' + corpo + (chiusa ? '' : '<div class="azioni"><button type="button" class="btn sec flex" data-pp="reset">Cambia modalità</button></div>') + '</div>';
+  }
+  function disegnaPP() {
+    var el = $('#blocco-pp'); if (!el) return;
+    var vis = ppVisibile();
+    el.classList.toggle('nascosto', !vis);
+    if (!vis) return;
+    el.innerHTML = htmlPP(S.stop, S.bozza, stopChiusa(S.stop));
+    el.querySelectorAll('[data-pp]').forEach(function (x) { x.onclick = function () { azionePP(x.dataset.pp, x); }; });
+    var sc = el.querySelector('#ppv-sc');
+    if (sc) sc.querySelectorAll('button').forEach(function (x) { x.onclick = function () { sc.dataset.v = x.dataset.v; sc.querySelectorAll('button').forEach(function (y) { y.classList.toggle('on', y === x); }); }; });
+  }
+  function aggiornaCampiPP() {          // cambia la risposta "Cliente accetta" mostrata
+    var b = S.bozza;
+    app.querySelectorAll('.seg button[data-k="cliente_accetta"]').forEach(function (x) { x.classList.toggle('on', b.risposte.cliente_accetta === x.dataset.v); });
+  }
+  function azionePP(a, el) {
+    var b = S.bozza, t = S.stop;
+    if (a === 'persona') return apriFirmaPP();
+    if (a === 'verbale') { S.ppVerbale = true; return disegnaPP(); }
+    if (a === 'annulla') { S.ppVerbale = false; return disegnaPP(); }
+    if (a === 'verbale-salva') {
+      var v = ($('#ppv-sc') || {}).dataset ? $('#ppv-sc').dataset.v : '', mot = ($('#ppv-motivo') || {}).value || '';
+      if (!v || !mot.trim()) { $('#ppv-err').innerHTML = '<div class="errore">Scegli cosa ha dichiarato il cliente e scrivi il motivo.</div>'; return; }
+      b.pp = { modalita: 'Solo verbale', scelta: v, motivo: mot.trim(), ts: new Date().toISOString() };
+      S.ppVerbale = false; ppSincronizza(); aggiornaCampiPP(); dbPut('bozze', b); return disegnaPP();
+    }
+    if (a === 'reset') {
+      if (!confirm('Vuoi cambiare modalità? La dichiarazione attuale non verrà usata.')) return;
+      b.pp = null; dbPut('bozze', b); return disegnaPP();
+    }
+    if (a === 'link' || a === 'reinvia') return inviaLinkPP(a === 'link' ? el.dataset.n : (b.pp && b.pp.numero));
+    if (a === 'stato') return statoPP();
+  }
+  function inviaLinkPP(numero) {
+    var b = S.bozza, t = S.stop;
+    if (!numero) { toast('Numero del cliente mancante'); return; }
+    toast('Preparo il link…');
+    api('ppCrea', { id: t.id }).then(function (j) {
+      var link = new URL('dichiarazione.html?t=' + j.token, location.href).href;
+      b.pp = { modalita: 'A distanza', token: j.token, numero: numero, stato: 'In attesa', creato: new Date().toISOString() };
+      dbPut('bozze', b); disegnaPP();
+      var msg = 'Buongiorno, sono ' + (S.sess ? S.sess.nome : 'il tecnico') + ' di RDS Impianti. Come da nostra telefonata, la prego di aprire questo link per confermare se ACCETTA o NON ACCETTA che l\'infrastruttura in fibra ottica venga predisposta nella sua proprietà privata in ' + t.indirizzo + ', ' + t.comune + '. Richiede un minuto: legga, scelga e firmi con il dito.\n' + link + '\nGrazie.';
+      window.open('https://wa.me/' + waNumero(numero) + '?text=' + encodeURIComponent(msg), '_blank');
+    }).catch(function (e) { toast('Link non creato: ' + e.message); });
+  }
+  function statoPP() {
+    var b = S.bozza, t = S.stop;
+    api('ppStato', { id: t.id }).then(function (j) {
+      if (!b.pp || b.pp.modalita !== 'A distanza') return;
+      b.pp.stato = j.stato || 'In attesa';
+      if (j.stato === 'Firmata') { b.pp.scelta = j.scelta; b.pp.firmatario = j.firmatario; ppSincronizza(); aggiornaCampiPP(); }
+      dbPut('bozze', b); disegnaPP(); toast(j.stato === 'Firmata' ? 'Il cliente ha firmato ✓' : 'Ancora in attesa');
+    }).catch(function (e) { toast('Controllo non riuscito: ' + e.message); });
+  }
+  function apriFirmaPP() {
+    var t = S.stop, b = S.bozza, tt = Dich.testi(), scelta = '', ov = document.createElement('div');
+    ov.className = 'pp-over';
+    ov.innerHTML = '<div class="pp-in"><h1 style="font-size:19px;color:#4A4F57;margin:0 0 6px">Dichiarazione del cliente</h1>' +
+      '<div class="info">Passa il telefono al cliente: deve leggere, scegliere e firmare.</div>' +
+      '<div class="muto">' + esc(Dich.riempi(tt.intro, ppDati(t))) + '</div>' +
+      '<label class="etic">Scelta del cliente</label><div class="seg" id="pps"><button type="button" data-v="Accetta">ACCETTA</button><button type="button" data-v="Non accetta">NON ACCETTA</button></div>' +
+      '<div class="pp-testo" id="pptesto">Scegli una delle due opzioni per leggere la dichiarazione.</div>' +
+      '<label class="etic">Nome e cognome del firmatario <span class="obb">*</span></label><input type="text" id="ppnome" value="' + esc(t.cliente || '') + '">' +
+      '<details><summary>Informativa privacy (tocca per leggere)</summary><div class="pp-testo">' + esc(tt.privacy) + '</div></details>' +
+      '<label class="chk"><input type="checkbox" id="pppriv"><span>' + esc(tt.consenso_privacy) + '</span></label>' +
+      '<label class="etic">Firma con il dito <span class="obb">*</span></label><canvas class="firma" id="ppfirma"></canvas>' +
+      '<div class="azioni"><button type="button" class="btn sec" id="ppclear">Cancella firma</button></div><div id="pperr"></div>' +
+      '<div class="azioni" style="margin-top:14px"><button type="button" class="btn sec flex" id="ppannulla">Annulla</button><button type="button" class="btn verde flex" id="ppok">✓ Conferma e salva</button></div></div>';
+    document.body.appendChild(ov);
+    var fm = Dich.firma($('#ppfirma', ov));
+    function agg() { var d = ppDati(t, $('#ppnome', ov).value.trim()); $('#pptesto', ov).textContent = scelta ? Dich.testoDichiarazione(tt, scelta, d) + '\n\n' + tt.conferma : 'Scegli una delle due opzioni per leggere la dichiarazione.'; }
+    ov.querySelectorAll('#pps button').forEach(function (x) { x.onclick = function () { scelta = x.dataset.v; ov.querySelectorAll('#pps button').forEach(function (y) { y.classList.toggle('on', y === x); }); agg(); }; });
+    $('#ppnome', ov).oninput = agg;
+    $('#ppclear', ov).onclick = function () { fm.pulisci(); };
+    $('#ppannulla', ov).onclick = function () { ov.remove(); };
+    $('#ppok', ov).onclick = function () {
+      var errs = [], nome = $('#ppnome', ov).value.trim(), er = $('#pperr', ov);
+      if (!scelta) errs.push('Scegli ACCETTA oppure NON ACCETTA');
+      if (nome.length < 3) errs.push('Scrivi nome e cognome');
+      if (!$('#pppriv', ov).checked) errs.push('Conferma di aver letto l\'informativa privacy');
+      if (fm.vuota()) errs.push('Firma nello spazio tratteggiato');
+      if (errs.length) { er.innerHTML = '<div class="errore">Per continuare:<br>• ' + errs.map(esc).join('<br>• ') + '</div>'; return; }
+      var btn = $('#ppok', ov); btn.disabled = true; btn.textContent = 'Salvo…';
+      var adesso = new Date(), png = fm.png(), d = ppDati(t, nome), gpsRes = null;
+      Dich.gps().then(function (g) { gpsRes = g; return fm.jpeg(); }).then(function (fj) {
+        return Dich.pdf({ tt: tt, d: d, scelta: scelta, modalita: 'Di persona (firma sul telefono del tecnico)', dataOra: Dich.dataOra(adesso), raccoltaDa: S.sess ? S.sess.nome : '',
+          posizione: gpsRes ? 'GPS ' + gpsRes.lat.toFixed(5) + ', ' + gpsRes.lon.toFixed(5) + ' (±' + Math.round(gpsRes.acc) + ' m)' : 'non disponibile', firmaJpeg: fj });
+      }).then(function (pdf) {
+        b.pp = { modalita: 'Di persona', scelta: scelta, nome: nome, firmaPng: png, pdf: pdf, gps: gpsRes, ts: adesso.toISOString(), dataOra: Dich.dataOra(adesso) };
+        ppSincronizza(); aggiornaCampiPP(); return dbPut('bozze', b);
+      }).then(function () { ov.remove(); disegnaPP(); toast('Dichiarazione salvata ✓'); })
+        .catch(function (e) { btn.disabled = false; btn.textContent = '✓ Conferma e salva'; er.innerHTML = '<div class="errore">Non riesco a salvare: ' + esc(e && e.message ? e.message : 'errore') + '</div>'; });
+    };
   }
 
   function htmlSel(opz, v) { return '<option value="">— scegli —</option>' + opz.map(function (o) { return '<option' + (v === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join(''); }
@@ -292,19 +434,31 @@
       (t.noteUfficio ? '<div class="muto" style="margin-top:6px">📝 ' + esc(t.noteUfficio) + '</div>' : '') + '</div>' +
       (chiusa ? '<div class="info">Questo sopralluogo risulta già chiuso (' + esc(t.inviata || t.stato) + '). Puoi guardarlo, ma l\'invio è bloccato.</div>' : '') +
       '<label class="etic">Esito del sopralluogo</label><div class="seg" id="esito">' +
-      ['Completato', 'Da rifare', 'Annullato'].map(function (o) { return '<button type="button" data-esito="' + o + '" class="' + (b.esito === o ? 'on' : '') + '">' + o + '</button>'; }).join('') + '</div>' +
+      ['Completato', 'Da rimodulare', 'Annullato'].map(function (o) { return '<button type="button" data-esito="' + o + '" class="' + (b.esito === o ? 'on' : '') + '">' + o + '</button>'; }).join('') + '</div>' +
+      '<div id="blocco-rim" class="nascosto"><div class="info" style="border-left:4px solid var(--arancio)"><b>DA RIMODULARE</b><br>Scrivi il motivo e scatta una foto che dimostri che sei presente al civico: senza foto non puoi chiudere. Il sopralluogo torna in “Da fare” per l\'ufficio (la SLA continua a salire).</div>' +
+      '<label class="etic">Motivo del rimodulo <span class="obb">*</span></label><textarea id="motivo-rim" placeholder="es. cliente assente, accesso non possibile, indirizzo errato…">' + esc(b.motivo || '') + '</textarea></div>' +
       '<div id="campi">' + campi.map(htmlCampo).join('') + '</div>' +
-      '<h2 class="sez">Soluzioni</h2>' + b.sol.map(function (s, i) { return htmlSol(s, i, chiusa); }).join('') +
-      (chiusa ? '' : '<button class="btn sec grande" id="addsol">＋ Aggiungi soluzione</button>') +
-      '<h2 class="sez">Foto generali</h2>' + htmlFoto('gen', 'Foto del sopralluogo', chiusa) +
+      '<div id="blocco-pp" class="nascosto"></div>' +
+      '<div id="blocco-sol"><h2 class="sez">Soluzioni</h2>' + b.sol.map(function (s, i) { return htmlSol(s, i, chiusa); }).join('') +
+      (chiusa ? '' : '<button class="btn sec grande" id="addsol">＋ Aggiungi soluzione</button>') + '</div>' +
+      '<h2 class="sez" id="tit-foto">Foto generali</h2>' + htmlFoto('gen', 'Foto del sopralluogo', chiusa) +
       '<input type="file" id="fcam" accept="image/*" capture="environment" class="nascosto"><input type="file" id="fgal" accept="image/*" multiple class="nascosto">' +
       '<div id="errscheda"></div></div>' +
       '<div class="piede-fisso"><div class="in"><button class="btn verde grande" id="invia"' + (chiusa ? ' disabled' : '') + '>✓ Concludi sopralluogo</button></div></div>';
-    aggiornaVisibilita(); disegnaGriglie();
+    function mostraPerEsito() {
+      var rim = b.esito === 'Da rimodulare';
+      $('#blocco-rim').classList.toggle('nascosto', !rim);
+      $('#campi').classList.toggle('nascosto', rim);
+      $('#blocco-sol').classList.toggle('nascosto', rim);
+      $('#tit-foto').textContent = rim ? 'Foto al civico (obbligatoria)' : 'Foto generali';
+      disegnaPP();
+    }
+    aggiornaVisibilita(); disegnaGriglie(); mostraPerEsito(); disegnaPP();
+    $('#motivo-rim').oninput = function () { b.motivo = this.value; salvaBozzaDebounced(); };
     if (y) window.scrollTo(0, y);
 
     $('#indietro').onclick = function () { if (S.bozza) dbPut('bozze', S.bozza); S.urls.forEach(URL.revokeObjectURL); S.urls = []; mostraGiro(); };
-    app.querySelectorAll('#esito button').forEach(function (x) { x.onclick = function () { b.esito = x.dataset.esito; app.querySelectorAll('#esito button').forEach(function (y2) { y2.classList.toggle('on', y2 === x); }); salvaBozzaDebounced(); }; });
+    app.querySelectorAll('#esito button').forEach(function (x) { x.onclick = function () { b.esito = x.dataset.esito; mostraPerEsito(); app.querySelectorAll('#esito button').forEach(function (y2) { y2.classList.toggle('on', y2 === x); }); salvaBozzaDebounced(); }; });
     app.querySelectorAll('.seg button[data-k]').forEach(function (x) {
       x.onclick = function () {
         b.risposte[x.dataset.k] = (b.risposte[x.dataset.k] === x.dataset.v) ? '' : x.dataset.v;
@@ -414,6 +568,7 @@
     var rilevati = [];
     campi.forEach(function (cf) { if (risposte[cf.k] !== undefined) rilevati.push([cf.label, risposte[cf.k]]); });
     var sezioni = [{ titolo: 'Dati sopralluogo', righe: dati }];
+    if (b.esito === 'Da rimodulare') sezioni.push({ titolo: 'Da rimodulare', righe: [['Motivazione', String(b.motivo || '').trim()], ['Foto al civico', String(b.foto.length)]] });
     if (rilevati.length) sezioni.push({ titolo: 'Verifiche e risposte', righe: rilevati });
     b.sol.forEach(function (s, i) {
       var nf = b.foto.filter(function (f) { return f.sol === s.id; }).length;
@@ -462,18 +617,28 @@
         if (!s.fea) mancanti.push('Soluzione ' + (i + 1) + ': esito fattibilità');
       });
     }
+    if (ppVisibile()) {
+      if (!b.pp) mancanti.push('Dichiarazione del cliente sugli scavi in proprietà privata (firma, link o solo verbale)');
+      else if (b.pp.modalita === 'A distanza' && b.pp.stato === 'Scaduto') mancanti.push('Il link per il cliente è scaduto: reinvialo o scegli un\'altra modalità');
+    }
+    if (b.esito === 'Da rimodulare') {
+      if (!String(b.motivo || '').trim()) mancanti.push('Motivo del rimodulo');
+      if (!b.foto.length) mancanti.push('Foto al civico (obbligatoria per rimodulare)');
+    }
     if (mancanti.length) { $('#errscheda').innerHTML = '<div class="errore">Compila:<br>• ' + mancanti.map(esc).join('<br>• ') + '</div>'; window.scrollTo(0, document.body.scrollHeight); return; }
     if (!confirm('Concludere il sopralluogo come “' + b.esito + '”?\nLa scheda viene salvata su Drive e potrai inviarla su WhatsApp.')) return;
 
     var btn = $('#invia'); btn.disabled = true; btn.textContent = 'Preparo scheda e PDF…';
-    var risposte = {}; campi.forEach(function (cf) { if (campoVisibile(cf) && b.risposte[cf.k] !== undefined && b.risposte[cf.k] !== '') risposte[cf.k] = b.risposte[cf.k]; });
+    var rimodulo = b.esito === 'Da rimodulare';
+    if (rimodulo) { b.sol = []; }
+    var risposte = {}; if (!rimodulo) campi.forEach(function (cf) { if (campoVisibile(cf) && b.risposte[cf.k] !== undefined && b.risposte[cf.k] !== '') risposte[cf.k] = b.risposte[cf.k]; });
     var soluzioni = b.sol.filter(function (s) { return s.pos || s.fea || s.roe || s.cno; });
     b.sol = soluzioni;                      // numerazione definitiva senza schede vuote
     var adesso = new Date(), modello = costruisciModello(t, b, campi, risposte, adesso), ord = fotoOrdinate(b);
     var testo = modelloATesto(modello, b.foto.length), nomeBase = soloAscii(t.olo) + '_' + soloAscii(t.comune);
     var fotoMeta = {}; b.foto.forEach(function (f) { fotoMeta[f.n] = etichettaFoto(b, f); });
-    var sintesi = soluzioni.map(function (s, i) { return (i + 1) + ') ' + [s.pos, s.fea].filter(Boolean).join(' – '); }).join('; ');
-    if (risposte.civico_diverso === 'Sì' && risposte.civico_reale) sintesi = 'Civico corretto: ' + risposte.civico_reale + (sintesi ? ' | ' + sintesi : '');
+    var sintesi = rimodulo ? 'RIMODULO: ' + String(b.motivo || '').trim() : soluzioni.map(function (s, i) { return (i + 1) + ') ' + [s.pos, s.fea].filter(Boolean).join(' – '); }).join('; ');
+    if (!rimodulo && risposte.civico_diverso === 'Sì' && risposte.civico_reale) sintesi = 'Civico corretto: ' + risposte.civico_reale + (sintesi ? ' | ' + sintesi : '');
 
     caricaLogo().then(function (logo) { modello.logo = logo; return PdfScheda.genera(modello); }).then(function (pdf) {
       return ZipFoto.crea(ord.map(function (f) {
@@ -482,7 +647,8 @@
     }).then(function (r) {
       var codice = uuid();
       var item = {
-        codice: codice, id: t.id, esito: b.esito, risposte: risposte, note: risposte.note || '', soluzioni: soluzioni, testo: testo, sintesi: sintesi, fotoMeta: fotoMeta,
+        codice: codice, id: t.id, esito: b.esito, risposte: risposte, pp: (!rimodulo && ppVisibile() && b.pp && b.pp.modalita !== 'A distanza') ? b.pp : null, ppInviato: false,
+        note: rimodulo ? String(b.motivo || '').trim() : (risposte.note || ''), motivo: rimodulo ? String(b.motivo || '').trim() : '', soluzioni: soluzioni, testo: testo, sintesi: sintesi, fotoMeta: fotoMeta,
         pdf: r.pdf, pdfCaricato: false,
         foto: b.foto.map(function (f) { return { n: f.n, orig: f.orig, ann: f.ann, w: f.w, h: f.h, caricata: { orig: false, ann: false } }; }),
         creato: new Date().toISOString(), tentativi: 0, errore: ''
@@ -571,7 +737,13 @@
       inizio = blobToB64(item.pdf).then(function (b64) { return api('file', { codice: item.codice, nome: 'scheda.pdf', dati: b64 }); })
         .then(function () { item.pdfCaricato = true; return dbPut('coda', item); });
     }
-    return inizio.then(function () { return passi.reduce(function (p, s) {
+    return inizio.then(function () {
+      if (!item.pp || item.ppInviato) return;
+      var p = item.pp;
+      return (p.pdf ? Dich.blobB64(p.pdf) : Promise.resolve('')).then(function (b64) {
+        return api('ppPersona', { codice: item.codice, id: item.id, modalita: p.modalita, scelta: p.scelta, nome: p.nome || '', firma: p.firmaPng || '', pdf: b64, gps: p.gps || null, ts: p.ts || '', motivo: p.motivo || '' });
+      }).then(function () { item.ppInviato = true; return dbPut('coda', item); });
+    }).then(function () { return passi.reduce(function (p, s) {
       return p.then(function () {
         return blobToB64(s.f[s.tipo]).then(function (b64) {
           return api('foto', { codice: item.codice, n: s.f.n, tipo: s.tipo, w: s.f.w, h: s.f.h, dati: b64 });
@@ -579,7 +751,7 @@
       });
     }, Promise.resolve()); }).then(function () {
       return api('chiudi', { codice: item.codice, id: item.id, esito: item.esito, risposte: item.risposte, note: item.note, nFoto: item.foto.length,
-        testo: item.testo, soluzioni: item.soluzioni, sintesi: item.sintesi, fotoMeta: item.fotoMeta });
+        testo: item.testo, soluzioni: item.soluzioni, sintesi: item.sintesi, fotoMeta: item.fotoMeta, motivo: item.motivo || '' });
     }).then(function () {
       return dbDel('coda', item.codice).then(function () {
         if (S.giro) S.giro.tappe.forEach(function (t) { if (t.id === item.id) t.inviata = item.esito; });
