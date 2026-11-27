@@ -1,5 +1,5 @@
 // Service worker: l'app si apre anche senza rete (le chiamate al server non vengono mai messe in cache).
-var CACHE = 'rds-sopralluoghi-v9';
+var CACHE = 'rds-sopralluoghi-v12';
 var FILES = ['./', 'index.html', 'style.css', 'config.js', 'editor.js', 'pdf.js', 'zip.js', 'app.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'logo.png', 'dich.js', 'dichiarazione.html', 'dichiarazione.js'];
 
 self.addEventListener('install', function (e) {

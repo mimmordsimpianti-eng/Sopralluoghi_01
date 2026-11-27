@@ -153,10 +153,14 @@
     var html =
       '<div class="barra"><div style="flex:1"><h1>Il mio giro</h1><div class="sotto">' + esc(S.sess.nome) + (S.offline ? ' · offline' : '') + '</div></div>' +
       (nCoda ? '<span class="chip attenzione">' + nCoda + ' da inviare</span>' : '') +
-      '<button class="btn-icona" id="agg" aria-label="Aggiorna">⟳</button><button class="btn-icona" id="esci">Esci</button></div>' +
+      '<button class="btn-icona" id="agg" aria-label="Aggiorna">⟳</button><button class="btn-icona" id="assenze">Ferie</button><button class="btn-icona" id="esci">Esci</button></div>' +
       '<div class="contenuto"><div class="data-nav"><button class="btn sec" id="prec">◀</button><div class="d">' + esc(etichettaData(S.data)) + '</div><button class="btn sec" id="succ">▶</button></div>';
     if (S.errore) html += '<div class="errore">' + esc(S.errore) + '</div>';
-    if (!g) html += '<div class="vuoto">Caricamento…</div>';
+    var oggiOk = S.data === isoData(new Date()), gg = giornata();
+    if (S.aperta) html += htmlAperta();
+    if (oggiOk && gg.inizio) html += htmlGiornata();
+    if (oggiOk && !gg.inizio) html += htmlGiornata();                       // prima si timbra l'entrata, poi compare il giro
+    else if (!g) html += '<div class="vuoto">Caricamento…</div>';
     else if (!tappe.length) html += '<div class="vuoto">Nessun sopralluogo in programma per questo giorno.</div>';
     else {
       html += '<div class="info"><b>' + fatte + ' fatti su ' + tappe.length + '</b></div>';
@@ -179,6 +183,12 @@
     }
     html += '</div>';
     app.innerHTML = html;
+    var ggI = $('#gg-inizio'), ggF = $('#gg-fine'), apI = $('#ap-invia');
+    if (ggI) ggI.onclick = timbraEntrata;
+    if (ggF) ggF.onclick = timbraUscita;
+    if (apI) apI.onclick = correggiUscita;
+    trkRiprendi();
+    $('#assenze').onclick = mostraAssenze;
     $('#esci').onclick = function () { if (confirm('Uscire dall\'app? Le schede non ancora inviate restano salvate.')) esci(); };
     $('#agg').onclick = function () { caricaGiro(true); };
     $('#prec').onclick = function () { S.data = giorniDopo(S.data, -1); caricaGiro(); };
@@ -193,7 +203,7 @@
       if (!navigator.onLine) { S.offline = true; S.giro = cache || { tappe: [], campi: leggiCampiCache() }; if (!cache) S.errore = 'Sei offline e questo giorno non è stato ancora scaricato.'; mostraGiro(); return; }
       return api('giro', { data: S.data }).then(function (g) {
         S.offline = false; S.giro = g; localStorage.setItem(chiaveGiro(S.data), JSON.stringify(g)); localStorage.setItem('rds_campi', JSON.stringify(g.campi || [])); if (g.cfg) localStorage.setItem('rds_cfg', JSON.stringify(g.cfg));
-        mostraGiro(); sincronizza();
+        mostraGiro(); sincronizza(); sincTimbratura();
       }).catch(function (e) {
         if (e.auth) { esci(); return; }
         S.offline = true; S.giro = cache || { tappe: [], campi: leggiCampiCache() };
@@ -216,6 +226,7 @@
     var t = S.giro.tappe.filter(function (x) { return x.id === id; })[0];
     if (!t) return;
     S.stop = t; S.ppVerbale = false;
+    (function () { var k = 'rds_posap_' + t.id + '_' + isoData(new Date()); if (!localStorage.getItem(k)) { try { localStorage.setItem(k, '1'); } catch (e) { /* ignora */ } registraPos('Apertura tappa', t); } })();
     if (!S.ppAgg) { S.ppAgg = true; api('ppTesti').then(function (j) { if (j.testi) Dich.salvaTesti(j.testi); }).catch(function () { /* usa i testi già presenti */ }); }
     dbGet('bozze', id).then(function (b) {
       S.bozza = b || { id: id, esito: 'Completato', risposte: {}, sol: [], foto: [] };
@@ -262,6 +273,162 @@
     });
   }
 
+
+
+  /* ---- posizione registrata solo in momenti precisi (inizio/fine giornata, apertura e chiusura di una tappa) ---- */
+  var POS_KEY = 'rds_pos';
+  function posCoda() { try { return JSON.parse(localStorage.getItem(POS_KEY)) || []; } catch (e) { return []; } }
+  function posSalva(c) { try { localStorage.setItem(POS_KEY, JSON.stringify(c.slice(-300))); } catch (e) { /* ignora */ } }
+  function inviaPos() {
+    var c = posCoda();
+    if (!c.length || !navigator.onLine || !S.sess || !configurata() || S.posInvio) return Promise.resolve();
+    S.posInvio = true;
+    var lotto = c.slice(0, 40);
+    return api('pos', { eventi: lotto }).then(function () {
+      var fatti = {}; lotto.forEach(function (x) { fatti[x.id] = 1; });
+      posSalva(posCoda().filter(function (x) { return !fatti[x.id]; }));
+    }).catch(function () { /* riprova al prossimo invio */ }).then(function () { S.posInvio = false; });
+  }
+  function registraPos(ev, t) {
+    var e = { id: uuid(), ev: ev, sopr: t ? t.id : '', ts: new Date().toISOString() };
+    Dich.gps().then(function (g) { if (g) { e.lat = g.lat; e.lon = g.lon; e.acc = g.acc; } }).catch(function () { /* senza posizione */ })
+      .then(function () { var c = posCoda(); c.push(e); posSalva(c); return inviaPos(); });
+  }
+  function giornata() { try { return JSON.parse(localStorage.getItem('rds_gg_' + isoData(new Date()))) || {}; } catch (e) { return {}; } }
+  function oraBreve(iso) { var d = new Date(iso); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function htmlGiornata() {
+    var g = giornata();
+    if (!g.inizio) return '<div class="card"><h2 style="margin:0 0 6px">Timbratura</h2><button type="button" class="btn verde grande" id="gg-inizio">▶ Timbra entrata</button>' +
+      '<div class="muto" style="margin-top:8px">Dopo la timbratura vedi il giro. Da quel momento, e fino alla timbratura di uscita, l\'app registra la tua posizione ogni pochi minuti finché è aperta. ' +
+      'Fuori dall\'orario timbrato non viene registrato nulla. Informativa completa in ufficio.</div></div>';
+    if (!g.fine) {
+      var n = trkCoda().length;
+      return '<div class="card"><div class="riga"><div style="flex:1"><b>Entrata timbrata alle ' + oraBreve(g.inizio) + '</b>' +
+        '<div class="muto">📍 Tracciamento attivo' + (S.trkOk === false ? ' · <b style="color:var(--rosso)">posizione non disponibile: controlla i permessi</b>' : '') + (n ? ' · ' + n + ' punti da inviare' : '') + '</div></div>' +
+        '<button type="button" class="btn rosso" id="gg-fine">■ Timbra uscita</button></div></div>';
+    }
+    return '<div class="card fatta"><b>Giornata conclusa</b> · dalle ' + oraBreve(g.inizio) + ' alle ' + oraBreve(g.fine) + '</div>';
+  }
+  function salvaGiornata(g) { try { localStorage.setItem('rds_gg_' + isoData(new Date()), JSON.stringify(g)); } catch (e) { /* ignora */ } }
+  function timbraEntrata() {
+    var g = giornata(); if (g.inizio) return;
+    g.inizio = new Date().toISOString(); salvaGiornata(g);
+    registraPos('Inizio giornata'); trkAvvia(); mostraGiro(); toast('Entrata timbrata. Buon lavoro!');
+  }
+  function timbraUscita() {
+    var g = giornata(); if (!g.inizio || g.fine) return;
+    var aperte = S.giro ? S.giro.tappe.filter(function (t) { return !stopChiusa(t); }).length : 0;
+    var msg = aperte ? 'Hai ancora ' + aperte + (aperte === 1 ? ' scheda' : ' schede') + ' non chiusa/e. Timbrare comunque l\'uscita?' : 'Timbrare l\'uscita e concludere la giornata?';
+    if (!confirm(msg)) return;
+    trkCampiona(); g.fine = new Date().toISOString(); salvaGiornata(g);
+    registraPos('Fine giornata'); trkFerma(); setTimeout(inviaTraccia, 1500); mostraGiro(); toast('Uscita timbrata. A domani!');
+  }
+
+  /* ---- tracciamento GPS tra entrata e uscita: un punto ogni pochi minuti, solo con l'app aperta ---- */
+  var TRK_KEY = 'rds_trk', TRK_MS = 3 * 60000;
+  function trkCoda() { try { return JSON.parse(localStorage.getItem(TRK_KEY)) || []; } catch (e) { return []; } }
+  function trkSalva(c) { try { localStorage.setItem(TRK_KEY, JSON.stringify(c.slice(-600))); } catch (e) { /* ignora */ } }
+  function trkAttivo() { var g = giornata(); return !!g.inizio && !g.fine && !!S.sess; }
+  function trkCampiona() {
+    if (!trkAttivo() || S.trkBusy || !navigator.geolocation) return;
+    S.trkBusy = true;
+    navigator.geolocation.getCurrentPosition(function (p) {
+      S.trkBusy = false; S.trkOk = true; S.trkUlt = Date.now();
+      var c = trkCoda(); c.push({ id: uuid(), ts: new Date().toISOString(), lat: Math.round(p.coords.latitude * 1e6) / 1e6, lon: Math.round(p.coords.longitude * 1e6) / 1e6, acc: Math.round(p.coords.accuracy) });
+      trkSalva(c); if (c.length >= 5) inviaTraccia();
+    }, function () { S.trkBusy = false; S.trkOk = false; }, { enableHighAccuracy: false, maximumAge: 60000, timeout: 25000 });
+  }
+  function trkAvvia() { trkRiprendi(); trkCampiona(); }
+  function trkRiprendi() {
+    if (trkAttivo()) {
+      if (!S.trkTimer) {
+        S.trkTimer = setInterval(trkCampiona, TRK_MS);
+        document.addEventListener('visibilitychange', function () { if (!document.hidden && trkAttivo() && (!S.trkUlt || Date.now() - S.trkUlt > 60000)) trkCampiona(); });
+      }
+      if (!S.trkUlt) trkCampiona();
+    } else trkFerma();
+  }
+  function trkFerma() { if (S.trkTimer) { clearInterval(S.trkTimer); S.trkTimer = null; } }
+  function inviaTraccia() {
+    var c = trkCoda();
+    if (!c.length || !navigator.onLine || !S.sess || !configurata() || S.trkInvio) return Promise.resolve();
+    S.trkInvio = true;
+    var lotto = c.slice(0, 50);
+    return api('traccia', { punti: lotto }).then(function () {
+      var fatti = {}; lotto.forEach(function (x) { fatti[x.id] = 1; });
+      trkSalva(trkCoda().filter(function (x) { return !fatti[x.id]; }));
+    }).catch(function () { /* riprova al prossimo invio */ }).then(function () { S.trkInvio = false; });
+  }
+
+  /* ---- sincronizza con il server (app reinstallata, altro telefono) e gestisce l'uscita dimenticata ---- */
+  function sincTimbratura() {
+    if (!navigator.onLine || !S.sess || !configurata()) return;
+    api('timbraStato').then(function (j) {
+      var g = giornata();
+      if (j.oggi && j.oggi.inizio && !g.inizio) { g.inizio = j.oggi.inizio; if (j.oggi.fine) g.fine = j.oggi.fine; salvaGiornata(g); }
+      else if (j.oggi && j.oggi.fine && !g.fine) { g.fine = j.oggi.fine; salvaGiornata(g); }
+      var ap = j.aperta || null;
+      if (JSON.stringify(ap) !== JSON.stringify(S.aperta)) { S.aperta = ap; if (!S.stop && $('#agg')) mostraGiro(); }
+      else if (j.oggi && !S.stop && $('#agg') && ((j.oggi.inizio && !g.inizio) || false)) mostraGiro();
+    }).catch(function () { /* senza rete: vale lo stato locale */ });
+  }
+  function htmlAperta() {
+    var a = S.aperta, d = new Date(a.data + 'T12:00:00');
+    return '<div class="card" style="border-left:4px solid var(--rosso)"><b>Uscita non timbrata</b><div class="muto">Il ' + d.getDate() + '/' + (d.getMonth() + 1) + ' hai timbrato l\'entrata alle ' + oraBreve(a.inizio) + ' ma non l\'uscita. A che ora hai finito?</div>' +
+      '<div class="riga" style="margin-top:8px"><input type="time" id="ap-ora" value="18:00" style="flex:1"><button type="button" class="btn" id="ap-invia">Invia</button></div>' +
+      '<input type="text" id="ap-motivo" placeholder="Motivo (es. batteria scarica, dimenticanza)" style="margin-top:6px;width:100%"><div class="muto">L\'ufficio controllerà l\'orario.</div></div>';
+  }
+  function correggiUscita() {
+    var ora = ($('#ap-ora').value || '').trim(), motivo = ($('#ap-motivo').value || '').trim();
+    if (!/^\d{2}:\d{2}$/.test(ora)) { toast('Indica l\'ora di uscita'); return; }
+    if (!motivo) { toast('Scrivi il motivo'); return; }
+    api('timbraCorreggi', { data: S.aperta.data, ora: ora, motivo: motivo }).then(function () { S.aperta = null; toast('Inviato all\'ufficio'); mostraGiro(); })
+      .catch(function (e) { toast('Non inviato: ' + e.message); });
+  }
+
+  /* ---------- ferie, permessi, malattia ---------- */
+  function dataIt(iso) { var p = String(iso).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso; }
+  function mostraAssenze() {
+    S.stop = null; clearInterval(S.timer);
+    var oggi = isoData(new Date());
+    app.innerHTML =
+      '<div class="barra"><button class="btn-icona" id="as-indietro">◀</button><div style="flex:1"><h1>Ferie e permessi</h1><div class="sotto">' + esc(S.sess.nome) + '</div></div></div>' +
+      '<div class="contenuto"><div class="card"><b>Nuova richiesta</b>' +
+      '<label class="etic">Tipo</label><select id="as-tipo"><option>Ferie</option><option>Permesso</option><option>Malattia</option><option>Altro</option></select>' +
+      '<label class="etic">Dal</label><input type="date" id="as-dal" value="' + oggi + '">' +
+      '<label class="etic" id="as-al-e">Al</label><input type="date" id="as-al" value="' + oggi + '">' +
+      '<div id="as-ore-b" style="display:none"><label class="etic">Quante ore di permesso? (es. 2 oppure 1.5)</label><input type="number" id="as-ore" step="0.5" min="0.5" max="12" inputmode="decimal"></div>' +
+      '<label class="etic">Note (facoltative)</label><input type="text" id="as-note" maxlength="200">' +
+      '<div class="azioni"><button type="button" class="btn flex" id="as-invia">Invia richiesta</button></div><div id="as-err" class="errore" style="display:none"></div></div>' +
+      '<h2 class="sez">Le mie richieste</h2><div id="as-lista" class="muto">Caricamento…</div></div>';
+    $('#as-indietro').onclick = mostraGiro;
+    $('#as-tipo').onchange = function () { var p = $('#as-tipo').value === 'Permesso'; $('#as-ore-b').style.display = p ? '' : 'none'; };
+    $('#as-invia').onclick = function () {
+      var e = $('#as-err'), tipo = $('#as-tipo').value, dal = $('#as-dal').value, al = $('#as-al').value, ore = $('#as-ore').value;
+      e.style.display = 'none';
+      var err = !dal || !al ? 'Indica le date.' : al < dal ? 'La data di fine è prima di quella di inizio.' : '';
+      if (!err && tipo === 'Permesso' && ore !== '' && !(Number(ore) > 0 && Number(ore) <= 12)) err = 'Ore non valide.';
+      if (err) { e.textContent = err; e.style.display = ''; return; }
+      if (!navigator.onLine) { e.textContent = 'Serve la connessione per inviare la richiesta.'; e.style.display = ''; return; }
+      $('#as-invia').disabled = true;
+      api('assenzaRichiedi', { tipo: tipo, dal: dal, al: al, ore: tipo === 'Permesso' ? ore : '', note: $('#as-note').value }).then(function () { toast('Richiesta inviata'); mostraAssenze(); })
+        .catch(function (x) { $('#as-invia').disabled = false; e.textContent = x.message; e.style.display = ''; });
+    };
+    if (!navigator.onLine) { $('#as-lista').textContent = 'Sei offline: le richieste non sono disponibili.'; return; }
+    api('assenzeLista').then(function (j) {
+      var l = j.assenze || [];
+      if (!l.length) { $('#as-lista').textContent = 'Nessuna richiesta.'; return; }
+      $('#as-lista').innerHTML = l.map(function (a) {
+        var cl = a.stato === 'Approvata' ? 'verde' : a.stato === 'Rifiutata' ? 'scaduto' : a.stato === 'Annullata' ? '' : 'giallo';
+        return '<div class="card"><div class="riga"><div style="flex:1"><b>' + esc(a.tipo) + '</b> · ' + dataIt(a.dal) + (a.al !== a.dal ? ' → ' + dataIt(a.al) : '') + (a.ore ? ' · ' + a.ore + ' h' : '') +
+          '<div><span class="tag ' + cl + '">' + esc(a.stato) + '</span></div>' + (a.noteUfficio ? '<div class="muto">Ufficio: ' + esc(a.noteUfficio) + '</div>' : '') + '</div>' +
+          (a.stato === 'Richiesta' ? '<button type="button" class="btn sec" data-an="' + esc(a.id) + '">Annulla</button>' : '') + '</div></div>';
+      }).join('');
+      $('#as-lista').querySelectorAll('button[data-an]').forEach(function (b) {
+        b.onclick = function () { if (!confirm('Annullare la richiesta?')) return; api('assenzaAnnulla', { id: b.getAttribute('data-an') }).then(mostraAssenze).catch(function (x) { toast(x.message); }); };
+      });
+    }).catch(function (x) { if (x.auth) { esci(); return; } $('#as-lista').textContent = 'Non riesco a caricare le richieste: ' + x.message; });
+  }
 
   /* ---- dichiarazione del cliente (scavi in proprietà privata) ---- */
   function ppVisibile() { var b = S.bozza; return !!b && b.esito === 'Completato' && !!b.risposte && b.risposte.scavi_pp === 'Sì'; }
@@ -626,6 +793,7 @@
       if (!b.foto.length) mancanti.push('Foto al civico (obbligatoria per rimodulare)');
     }
     if (mancanti.length) { $('#errscheda').innerHTML = '<div class="errore">Compila:<br>• ' + mancanti.map(esc).join('<br>• ') + '</div>'; window.scrollTo(0, document.body.scrollHeight); return; }
+    registraPos('Chiusura tappa', S.stop);
     if (!confirm('Concludere il sopralluogo come “' + b.esito + '”?\nLa scheda viene salvata su Drive e potrai inviarla su WhatsApp.')) return;
 
     var btn = $('#invia'); btn.disabled = true; btn.textContent = 'Preparo scheda e PDF…';
@@ -715,7 +883,7 @@
 
   function sincronizza() {
     if (S.sync || !navigator.onLine || !S.sess || !configurata()) return Promise.resolve();
-    S.sync = true;
+    S.sync = true; inviaPos(); inviaTraccia();
     return dbAll('coda').then(function (items) {
       return items.reduce(function (p, item) {
         return p.then(function () { return inviaItem(item); });
